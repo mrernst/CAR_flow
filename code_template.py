@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Project Saturn                                                           
+# Project Saturn
 # _____________________________________________________________________________
 #
 #                                                                         _.oo.
@@ -38,12 +38,18 @@
 # _____________________________________________________________________________
 
 
-# -------------------------
-# import standard libraries
-# -------------------------
+# ----------------
+# import libraries
+# ----------------
 
+# standard libraries
+# -----
 import tensorflow as tf
+import numpy as np
 
+# custom functions
+# -----
+from utilities.io import iohelper, pathfinder
 
 
 
@@ -60,4 +66,3 @@ import tensorflow as tf
 # -----
 
 # low level comment
-
