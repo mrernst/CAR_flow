@@ -38,25 +38,27 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 
 ```bash
 .
-├── datasets                       # description
-│   ├── run_single.py              # description
-│   ├── sorn.py                    # description
-│   ├── stats.py                   # description
-│   ├── synapses.py                # description
-├── network engine                 # description
-│   ├── utilities             		  # description
-│   │   ├── run_single.py          # description
-│   │   ├── run_single.py          # description
-│   │   ├── run_single.py          # description
-│   │   ├── run_single.py          # description
-│   ├── sorn.py                    # description
-│   ├── stats.py                   # description
-├── README.md
-├── LICENSE
-├── requirements.txt               # description
-└── utils                          # description
-    ├── backup.py
-    └── bunch
+├── datasets                          
+│   ├── CIFAR10                       # CIFAR10
+│   ├── CIFAR100                      # CIFAR100
+│   ├── ImageNet                      # ImageNet
+│   ├── MNIST                         # MNIST
+│   ├── OS-MNIST                      # OS-MNIST 
+│   ├── OS-YCB                        # OS-YCB
+├── network engine                    
+│   ├── input             		        
+│   ├── output             		        
+│   ├── utilities             		    
+│   │   ├── run_single.py             # description
+│   │   ├── run_single.py             # description
+│   │   ├── run_single.py             # description
+│   │   ├── run_single.py             # description
+│   ├── engine.py                     # Main Program
+│   ├── parameters.py                 # Experiment Parameters
+│   ├── run_engine.py                 # Setup and Run Experiments
+├── LICENSE                           # Apache 2.0 License
+├── README.md                         # ReadMe File
+└── requirements.txt                  # conda/pip requirements
 ```
 
 ### Installation guide
