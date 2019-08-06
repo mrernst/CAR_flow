@@ -229,7 +229,7 @@ class OSMNISTBuilder(object):
                     index = np.random.choice(range(Nl))
                     xl = x[l][index]
                     combined_array = np.concatenate([xi, xo, xl], -1)
-                    labels = np.array([i,j,l])
+                    labels = np.array([i, j, l])
                     merged_image_left, merged_image_right,\
                         occlusion_percentage_left,\
                         occlusion_percentage_right,\
