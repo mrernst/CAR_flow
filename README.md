@@ -43,7 +43,7 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 │   ├── CIFAR100                      # CIFAR100
 │   ├── ImageNet                      # ImageNet
 │   ├── MNIST                         # MNIST
-│   ├── OS-MNIST                      # OS-MNIST 
+│   ├── OS-MNIST                      # OS-MNIST
 │   ├── OS-YCB                        # OS-YCB
 ├── network engine                    
 │   ├── input             		        
