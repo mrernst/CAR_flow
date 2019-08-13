@@ -1237,612 +1237,677 @@ class ComposedModule(AbstractComposedModule, OperationModule):
     pass
 
 
-
 class ConvolutionalLayerModule(ComposedModule):
-  """
-  ConvolutionalLayerModule inherits from ComposedModule. This composed module
-  performs a convolution and applies a bias and an activation function.
-  It does not allow recursions
-  """
-  def define_inner_modules(self, name, activation, filter_shape, strides, bias_shape, padding='SAME'):
-    self.input_module = Conv2DModule(name + "_conv", filter_shape, strides, padding=padding)
-    self.bias = BiasModule(name + "_bias", bias_shape)
-    self.preactivation = AddModule(name + "_preactivation")
-    self.output_module = ActivationModule(name + "_output", activation)
-    self.preactivation.add_input(self.input_module)
-    self.preactivation.add_input(self.bias)
-    self.output_module.add_input(self.preactivation)
+    """
+    ConvolutionalLayerModule inherits from ComposedModule. This composed module
+    performs a convolution and applies a bias and an activation function.
+    It does not allow recursions
+    """
+    def define_inner_modules(self, name, activation, filter_shape, strides,
+                             bias_shape, padding='SAME'):
 
+        self.input_module = Conv2DModule(name + "_conv", filter_shape, strides,
+                                         padding=padding)
+        self.bias = BiasModule(name + "_bias", bias_shape)
+        self.preactivation = AddModule(name + "_preactivation")
+        self.output_module = ActivationModule(name + "_output", activation)
+        self.preactivation.add_input(self.input_module)
+        self.preactivation.add_input(self.bias)
+        self.output_module.add_input(self.preactivation)
 
 
 class ConvolutionalLayerWithBatchNormalizationModule(ComposedModule):
-  """
-  ConvolutionalLayerWithBatchNormalizationModule inherits from ComposedModule.
-  This composed module performs a convolution and applies a bias then Batch
-  Normalization and an activation function. It does not allow recursions
-  """
-  def define_inner_modules(self, name, n_out, is_training, beta_init, gamma_init, ema_decay_rate, activation, filter_shape, strides, bias_shape, padding='SAME'):
-    self.input_module = Conv2DModule(name + "_conv", filter_shape, strides, padding=padding)
-    #self.bias = BiasModule(name + "_bias", bias_shape)
-    #self.preactivation = AddModule(name + "_preactivation")
-    self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out, is_training, beta_init, gamma_init,
-        ema_decay_rate, moment_axes=[0,1,2], variance_epsilon=1e-3)
-    self.output_module = ActivationModule(name + "_output", activation)
-    #self.preactivation.add_input(self.input_module)
-    #self.preactivation.add_input(self.bias)
-    self.batchnorm.add_input(self.input_module)
-    self.output_module.add_input(self.batchnorm)
+    """
+    ConvolutionalLayerWithBatchNormalizationModule inherits from
+    ComposedModule. This composed module performs a convolution and applies a
+    bias then BatchNormalization and an activation function. It does not allow
+    recursions
+    """
+    def define_inner_modules(self, name, n_out, is_training, beta_init,
+                             gamma_init, ema_decay_rate, activation,
+                             filter_shape, strides, bias_shape,
+                             padding='SAME'):
 
+        self.input_module = Conv2DModule(name + "_conv", filter_shape, strides,
+                                         padding=padding)
+        # self.bias = BiasModule(name + "_bias", bias_shape)
+        # self.preactivation = AddModule(name + "_preactivation")
+        self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out,
+                                                  is_training, beta_init,
+                                                  gamma_init,
+                                                  ema_decay_rate,
+                                                  moment_axes=[0, 1, 2],
+                                                  variance_epsilon=1e-3)
+        self.output_module = ActivationModule(name + "_output", activation)
+        # self.preactivation.add_input(self.input_module)
+        # self.preactivation.add_input(self.bias)
+        self.batchnorm.add_input(self.input_module)
+        self.output_module.add_input(self.batchnorm)
 
 
 class TimeConvolutionalLayerModule(TimeComposedModule):
-  """
-  TimeConvolutionalLayerModule inherits from TimeComposedModule. This composed module
-  performs a convolution and applies a bias and an activation function.
-  It does allow recursions on two different hooks (input and preactivation)
-  """
-  def define_inner_modules(self, name, activation, filter_shape, strides, bias_shape, padding='SAME'):
-    self.input_module = TimeAddModule(name + "_input")
-    self.conv = Conv2DModule(name + "_conv", filter_shape, strides, padding=padding)
-    self.bias = BiasModule(name + "_bias", bias_shape)
-    self.preactivation = TimeAddModule(name + "_preactivation")
-    self.output_module = ActivationModule(name + "_output", activation)
-    self.conv.add_input(self.input_module)
-    self.preactivation.add_input(self.conv, 0)
-    self.preactivation.add_input(self.bias, 0)
-    self.output_module.add_input(self.preactivation)
+    """
+    TimeConvolutionalLayerModule inherits from TimeComposedModule. This
+    composed module performs a convolution and applies a bias and an
+    activation function. It does allow recursions on two different hooks
+    (input and preactivation).
+    """
+    def define_inner_modules(self, name, activation, filter_shape, strides,
+                             bias_shape, padding='SAME'):
 
+        self.input_module = TimeAddModule(name + "_input")
+        self.conv = Conv2DModule(name + "_conv", filter_shape, strides,
+                                 padding=padding)
+        self.bias = BiasModule(name + "_bias", bias_shape)
+        self.preactivation = TimeAddModule(name + "_preactivation")
+        self.output_module = ActivationModule(name + "_output", activation)
+        self.conv.add_input(self.input_module)
+        self.preactivation.add_input(self.conv, 0)
+        self.preactivation.add_input(self.bias, 0)
+        self.output_module.add_input(self.preactivation)
 
 
 class TimeConvolutionalLayerWithBatchNormalizationModule(TimeComposedModule):
-  """
-  TimeConvolutionalLayerWithBatchNormalizationModule inherits from TimeComposedModule.
-  This composed module performs a convolution, applies a bias, batchnormalizes the
-  preactivation and then applies an activation function.
-  It does allow recursions on two different hooks (input and preactivation)
-  """
-  def define_inner_modules(self, name, n_out, is_training, beta_init, gamma_init,
-        ema_decay_rate, activation, filter_shape, strides, bias_shape, padding='SAME'):
-    self.input_module = TimeAddModule(name + "_input")
-    self.conv = Conv2DModule(name + "_conv", filter_shape, strides, padding=padding)
-    #self.bias = BiasModule(name + "_bias", bias_shape)
-    self.preactivation = TimeAddModule(name + "_preactivation")
-    self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out, is_training, beta_init, gamma_init,
-        ema_decay_rate, moment_axes=[0,1,2], variance_epsilon=1e-3)
-    self.output_module = ActivationModule(name + "_output", activation)
-    self.conv.add_input(self.input_module)
-    self.preactivation.add_input(self.conv, 0)
-    #self.preactivation.add_input(self.bias)
-    self.batchnorm.add_input(self.preactivation)
-    self.output_module.add_input(self.batchnorm)
+    """
+    TimeConvolutionalLayerWithBatchNormalizationModule inherits from
+    TimeComposedModule. This composed module performs a convolution,
+    applies a bias, batchnormalizes the preactivation and then applies an
+    activation function. It does allow recursions on two different hooks
+    (input and preactivation)
+    """
+    def define_inner_modules(self, name, n_out, is_training, beta_init,
+                             gamma_init, ema_decay_rate, activation,
+                             filter_shape, strides, bias_shape,
+                             padding='SAME'):
+
+        self.input_module = TimeAddModule(name + "_input")
+        self.conv = Conv2DModule(name + "_conv", filter_shape, strides,
+                                 padding=padding)
+        # self.bias = BiasModule(name + "_bias", bias_shape)
+        self.preactivation = TimeAddModule(name + "_preactivation")
+        self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out,
+                                                  is_training, beta_init,
+                                                  gamma_init, ema_decay_rate,
+                                                  moment_axes=[0, 1, 2],
+                                                  variance_epsilon=1e-3)
+        self.output_module = ActivationModule(name + "_output", activation)
+        self.conv.add_input(self.input_module)
+        self.preactivation.add_input(self.conv, 0)
+        # self.preactivation.add_input(self.bias)
+        self.batchnorm.add_input(self.preactivation)
+        self.output_module.add_input(self.batchnorm)
 
 
 class FullyConnectedLayerModule(ComposedModule):
-  """
-  FullyConnectedLayerModule inherits from ComposedModule. This composed module
-  performs a full connection and applies a bias and an activation function.
-  It does not allow recursions.
-  """
-  def define_inner_modules(self, name, activation, in_size, out_size):
-    self.input_module = FullyConnectedModule(name + "_fc", in_size, out_size)
-    self.bias = BiasModule(name + "_bias", (1, out_size))
-    self.preactivation = AddModule(name + "_preactivation")
-    self.output_module = ActivationModule(name + "_output", activation)
-    self.preactivation.add_input(self.input_module)
-    self.preactivation.add_input(self.bias)
-    self.output_module.add_input(self.preactivation)
-
+    """
+    FullyConnectedLayerModule inherits from ComposedModule. This composed
+    module performs a full connection and applies a bias and an
+    activation function. It does not allow recursions.
+    """
+    def define_inner_modules(self, name, activation, in_size, out_size):
+        self.input_module = FullyConnectedModule(name + "_fc", in_size,
+                                                 out_size)
+        self.bias = BiasModule(name + "_bias", (1, out_size))
+        self.preactivation = AddModule(name + "_preactivation")
+        self.output_module = ActivationModule(name + "_output", activation)
+        self.preactivation.add_input(self.input_module)
+        self.preactivation.add_input(self.bias)
+        self.output_module.add_input(self.preactivation)
 
 
 class FullyConnectedLayerWithBatchNormalizationModule(ComposedModule):
-  """
-  FullyConnectedLayerWithBatchNormalizationModule inherits from ComposedModule. This composed module
-  performs a full connection and applies a bias batchnormalizes the preactivation and
-  applies an activation function. It does not allow recursions.
-  """
-  def define_inner_modules(self, name, n_out, is_training, beta_init, gamma_init,
-        ema_decay_rate, activation, in_size, out_size):
-    self.input_module = FullyConnectedModule(name + "_fc", in_size, out_size)
-    #self.bias = BiasModule(name + "_bias", (1, out_size))
-    self.preactivation = AddModule(name + "_preactivation")
-    self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out, is_training, beta_init, gamma_init,
-        ema_decay_rate, moment_axes=[0], variance_epsilon=1e-3)
-    self.output_module = ActivationModule(name + "_output", activation)
-    self.preactivation.add_input(self.input_module)
-    #self.preactivation.add_input(self.bias)
-    self.batchnorm.add_input(self.preactivation)
-    self.output_module.add_input(self.batchnorm)
+    """
+    FullyConnectedLayerWithBatchNormalizationModule inherits from
+    ComposedModule. This composed module performs a full connection and applies
+    a bias batchnormalizes the preactivation and an activation function.
+    It does not allow recursions.
+    """
+    def define_inner_modules(self, name, n_out, is_training, beta_init,
+                             gamma_init, ema_decay_rate, activation, in_size,
+                             out_size):
+
+        self.input_module = FullyConnectedModule(name + "_fc", in_size,
+                                                 out_size)
+        # self.bias = BiasModule(name + "_bias", (1, out_size))
+        self.preactivation = AddModule(name + "_preactivation")
+        self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out,
+                                                  is_training, beta_init,
+                                                  gamma_init, ema_decay_rate,
+                                                  moment_axes=[0],
+                                                  variance_epsilon=1e-3)
+        self.output_module = ActivationModule(name + "_output", activation)
+        self.preactivation.add_input(self.input_module)
+        # self.preactivation.add_input(self.bias)
+        self.batchnorm.add_input(self.preactivation)
+        self.output_module.add_input(self.batchnorm)
+
 
 class AugmentModule(ComposedModule):
-  """
-  AugmentModule inherits from ComposedModule. This composed module
-  performs a rotation of an image, changes its image properties and crops it
-  It does not allow recursions
-  """
-  def define_inner_modules(self, name, is_training, image_width, angle_max=10., brightness_max_delta=.5, contrast_lower=.5, contrast_upper=1., hue_max_delta=.05):
-    self.input_module = RotateImageModule('_rotate', is_training, angle_max)
-    self.centercrop = AugmentCropModule('_centercrop', is_training, image_width//10*5, image_width//10*5)
-    self.imagestats = RandomImageStatsModule('_imageprops', is_training, brightness_max_delta, contrast_lower, contrast_upper, hue_max_delta)
-    self.output_module = RandomCropModule('_randomcrop', is_training, image_width//10*4, image_width//10*4)
-    # wire modules
-    self.centercrop.add_input(self.input_module)
-    self.imagestats.add_input(self.centercrop)
-    self.output_module.add_input(self.imagestats)
+    """
+    AugmentModule inherits from ComposedModule. This composed module performs a
+    rotation of an image, changes its image properties and crops it.
+    It does not allow recursions
+    """
+    def define_inner_modules(self, name, is_training, image_width,
+                             angle_max=10., brightness_max_delta=.5,
+                             contrast_lower=.5, contrast_upper=1.,
+                             hue_max_delta=.05):
 
+        self.input_module = RotateImageModule('_rotate', is_training,
+                                              angle_max)
+        self.centercrop = AugmentCropModule('_centercrop', is_training,
+                                            image_width//10*5,
+                                            image_width//10*5)
+        self.imagestats = RandomImageStatsModule('_imageprops', is_training,
+                                                 brightness_max_delta,
+                                                 contrast_lower,
+                                                 contrast_upper, hue_max_delta)
+        self.output_module = RandomCropModule('_randomcrop', is_training,
+                                              image_width//10*4,
+                                              image_width//10*4)
+
+        self.centercrop.add_input(self.input_module)
+        self.imagestats.add_input(self.centercrop)
+        self.output_module.add_input(self.imagestats)
 
 
 class RotateImageModule(OperationModule):
-  """
-  RotateImageModule inherits from OperationModule. It takes a single module as input
-  and applies a rotation.
-  """
-
-  def __init__(self, name, is_training, angle_max, random_seed = None):
     """
-    Creates RotateImageModule object
-
-    Args:
-      name:                        string, name of the Module
-      is_training:                 bool, indicates training or testing
-      angle_max:                   float, angle at 1 sigma
-      random_seed:                 int, An operation-specific seed
+    RotateImageModule inherits from OperationModule. It takes a single module
+    as input and applies a rotation.
     """
-    super().__init__(name, is_training, angle_max, random_seed)
-    self.is_training = is_training
-    self.angle_max = angle_max
-    self.random_seed = random_seed
 
-  def operation(self, x):
-    """
-    operation takes a RotateImageModule, a tensor x and returns a tensor the same shape
-    …
+    def __init__(self, name, is_training, angle_max, random_seed=None):
+        """
+        Creates RotateImageModule object
 
-    Args:
-      x:                    tensor, RGBA image
-    Returns:
-      ?:                    tensor, same shape as x
-    """
-    #batch_size = tf.cast(x[0].shape, tf.int32)
-    batch_size = x.shape[0:1]
+        Args:
+          name:                        string, name of the Module
+          is_training:                 bool, indicates training or testing
+          angle_max:                   float, angle at 1 sigma
+          random_seed:                 int, An operation-specific seed
+        """
+        super().__init__(name, is_training, angle_max, random_seed)
+        self.is_training = is_training
+        self.angle_max = angle_max
+        self.random_seed = random_seed
 
-    #angles have to be in terms of pi
-    angles = (2*np.pi / 360.) * self.angle_max * tf.random_normal(
-        batch_size,
-        mean=0.0,
-        stddev=1.0,
-        dtype=tf.float32,
-        seed=self.random_seed,
-        name=None
-    )
+    def operation(self, x):
+        """
+        operation takes a RotateImageModule, a tensor x and returns a tensor of
+        the same shape.
 
-    def apply_transformation():
-      return tf.contrib.image.rotate(
-        x,
-        angles,
-        interpolation='NEAREST'
+        Args:
+          x:                    tensor, [B,H,W,C]
+        Returns:
+          ?:                    tensor, same shape as x
+        """
+
+        batch_size = x.shape[0:1]
+
+        # angles have to be in terms of pi
+        angles = (2*np.pi / 360.) * self.angle_max * tf.random_normal(
+            batch_size,
+            mean=0.0,
+            stddev=1.0,
+            dtype=tf.float32,
+            seed=self.random_seed,
+            name=None
         )
 
-    def ret_identity():
-      return tf.identity(x)
+        def apply_transformation():
+            return tf.contrib.image.rotate(
+               x,
+               angles,
+               interpolation='NEAREST'
+               )
 
-    rotated_x = tf.cond(self.is_training, apply_transformation, ret_identity)
+        def ret_identity():
+            return tf.identity(x)
 
-    return rotated_x
+        rotated_x = tf.cond(self.is_training, apply_transformation,
+                            ret_identity)
+
+        return rotated_x
 
 
 class RandomImageStatsModule(OperationModule):
-  """
-  RandomImageStatsModule inherits from OperationModule. It takes a single module as input
-  and …
-  """
-
-  def __init__(self, name, is_training, brightness_max_delta, contrast_lower, contrast_upper, hue_max_delta, random_seed = None):
     """
-    Creates RandomImageStatsModule object
-
-    Args:
-      name:                        string, name of the Module
-      is_training:                 bool, indicates training or testing
-      brightness_max_delta:        float, must be non-negative.
-      contrast_lower:              float, Lower bound for the random contrast factor.
-      contrast_upper:              float, Upper bound for the random contrast factor.
-      hue_max_delta:               float, Maximum value for the random delta.
-      random_seed:                 int, An operation-specific seed
-    """
-    super().__init__(name, is_training, brightness_max_delta, contrast_lower, contrast_upper,hue_max_delta, random_seed)
-    self.is_training = is_training
-    self.brightness_max_delta = brightness_max_delta
-    self.contrast_lower = contrast_lower
-    self.contrast_upper = contrast_upper
-    self.hue_max_delta = hue_max_delta
-    self.random_seed = random_seed
-
-  def operation(self, x):
-    """
-    operation takes a RandomImageStatsModule, a tensor x and returns a tensor the same shape
-    …
-
-    Args:
-      x:                    tensor, RGBA image
-    Returns:
-      ?:                    tensor, same shape as x
+    RandomImageStatsModule inherits from OperationModule. It takes a single
+    module as input and randomly assigns new image statistics
     """
 
-    bright_x = tf.image.random_brightness(
-        x,
-        self.brightness_max_delta,
-        seed=self.random_seed
-    )
+    def __init__(self, name, is_training, brightness_max_delta, contrast_lower,
+                 contrast_upper, hue_max_delta, random_seed=None):
+        """
+        Creates RandomImageStatsModule object
 
-    contrast_x = tf.image.random_contrast(
-        bright_x,
-        self.contrast_lower,
-        self.contrast_upper,
-        seed=self.random_seed
-    )
+        Args:
+          name:                        string, name of the Module
+          is_training:                 bool, indicates training or testing
+          brightness_max_delta:        float, must be non-negative.
+          contrast_lower:              float, Lower bound for the random
+                                         contrast factor.
+          contrast_upper:              float, Upper bound for the random
+                                         contrast factor.
+          hue_max_delta:               float, Maximum value for the random
+                                         delta.
+          random_seed:                 int, An operation-specific seed
+        """
+        super().__init__(name, is_training, brightness_max_delta,
+                         contrast_lower, contrast_upper, hue_max_delta,
+                         random_seed)
+        self.is_training = is_training
+        self.brightness_max_delta = brightness_max_delta
+        self.contrast_lower = contrast_lower
+        self.contrast_upper = contrast_upper
+        self.hue_max_delta = hue_max_delta
+        self.random_seed = random_seed
 
-    # not supported on tf 1.4
-    #hue_x = tf.image.random_hue(
-    #    contrast_x,
-    #    self.hue_max_delta,
-    #    seed=self.random_seed
-    #)
+    def operation(self, x):
+        """
+        operation takes a RandomImageStatsModule, a tensor x and returns a
+        tensor of the same shape.
 
-    #flipped_x = tf.image.random_flip_left_right(
-    #    hue_x,
-    #    seed=self.random_seed
-    #)
-    def apply_transformation():
-      return tf.map_fn(tf.image.random_flip_left_right, contrast_x)
+        Args:
+          x:                    tensor, RGBA image
+        Returns:
+          ?:                    tensor, same shape as x
+        """
 
-    def ret_identity():
-      return tf.identity(x)
+        bright_x = tf.image.random_brightness(
+            x,
+            self.brightness_max_delta,
+            seed=self.random_seed
+        )
 
-    flipped_x = tf.cond(self.is_training, apply_transformation, ret_identity)
+        contrast_x = tf.image.random_contrast(
+            bright_x,
+            self.contrast_lower,
+            self.contrast_upper,
+            seed=self.random_seed
+        )
 
-    return flipped_x
+        hue_x = tf.image.random_hue(
+           contrast_x,
+           self.hue_max_delta,
+           seed=self.random_seed
+        )
+
+        flipped_x = tf.image.random_flip_left_right(
+           hue_x,
+           seed=self.random_seed
+        )
+
+        def apply_transformation():
+            return tf.map_fn(tf.image.random_flip_left_right, contrast_x)
+
+        def ret_identity():
+            return tf.identity(x)
+
+        flipped_x = tf.cond(self.is_training, apply_transformation,
+                            ret_identity)
+
+        return flipped_x
 
 
 class RandomCropModule(OperationModule):
-  """
-  RandomCropModule inherits from OperationModule. It takes a single input module and
-  resizes it.
-  """
-  def __init__(self, name, is_training, height, width):
-     """
-     Creates a RandomCropModule object
-
-     Args:
-       name:                 string, name of the Module
-       is_training:                 bool, indicates training or testing
-       height:               int, desired output image height
-       weight:               int, desired output image width
-     """
-     super().__init__(name, height, width)
-     self.is_training = is_training
-     self.height = height
-     self.width = width
-
-  def operation(self, x):
     """
-    operation takes a RandomCropModule and x, a tensor and performs a cropping operation of
-    the input module in the current time slice
-
-    Args:
-      x:                    tensor
-    Returns:
-      ret:                  tensor, (B,self.height,self.width,D)
+    RandomCropModule inherits from OperationModule. It takes a single
+    input module and resizes it by cropping a random portion of the image.
     """
-    batchsize =x.shape[0]
-    channels = x.shape[-1]
 
-    def apply_transformation():
-      return tf.random_crop(x, [batchsize, self.height, self.width, channels])
-    def ret_identity():
-      return tf.identity(x)
+    def __init__(self, name, is_training, height, width):
+        """
+        Creates a RandomCropModule object
 
-    ret = tf.cond(self.is_training, apply_transformation, ret_identity)
-    return ret
+        Args:
+        name:                 string, name of the Module
+        is_training:          bool, indicates training or testing
+        height:               int, desired output image height
+        weight:               int, desired output image width
+        """
+        super().__init__(name, height, width)
+        self.is_training = is_training
+        self.height = height
+        self.width = width
+
+    def operation(self, x):
+        """
+        operation takes a RandomCropModule and x, a tensor and performs a
+        cropping operation of the input module in the current time slice
+
+        Args:
+          x:                    tensor, [B,H,W,C]
+        Returns:
+          ret:                  tensor, [B,self.height,self.width,C]
+        """
+        batchsize = x.shape[0]
+        channels = x.shape[-1]
+
+        def apply_transformation():
+            return tf.random_crop(x, [batchsize,
+                                  self.height, self.width, channels])
+
+        def ret_identity():
+            return tf.identity(x)
+
+        ret = tf.cond(self.is_training, apply_transformation, ret_identity)
+        return ret
 
 
 class AugmentCropModule(OperationModule):
-  """
-  AugmentCropModule inherits from OperationModule. It takes a single input module and
-  resizes it. It is similar to CropModule, but aware of is_training.
-  """
-  def __init__(self, name, is_training, height, width):
-     """
-     Creates a CropModule object
-
-     Args:
-       name:                 string, name of the Module
-       is_training:          bool, indicates training or testing
-       height:               int, desired output image height
-       weight:               int, desired output image width
-     """
-     super().__init__(name, height, width)
-     self.is_training = is_training
-     self.height = height
-     self.width = width
-
-  def operation(self, x):
     """
-    operation takes a AugmentCropModule and x, a tensor and performs a cropping operation of
-    the input module in the current time slice
-
-    Args:
-      x:                    tensor
-    Returns:
-      ret:                  tensor, (B,self.height,self.width,D)
+    AugmentCropModule inherits from OperationModule. It takes a single
+    input module and resizes it. It is similar to CropModule, but aware of
+    is_training.
     """
-    def apply_transformation():
-      return tf.image.resize_image_with_crop_or_pad(x, self.height, self.width)
-    def apply_alt_transformation():
-      return tf.image.resize_image_with_crop_or_pad(x, self.height//5*4, self.width//5*4)
 
-    ret = tf.cond(self.is_training, apply_transformation, apply_alt_transformation)
-    return ret
+    def __init__(self, name, is_training, height, width):
+        """
+        Creates a CropModule object
 
+        Args:
+        name:                 string, name of the Module
+        is_training:          bool, indicates training or testing
+        height:               int, desired output image height
+        weight:               int, desired output image width
+        """
+        super().__init__(name, height, width)
+        self.is_training = is_training
+        self.height = height
+        self.width = width
+
+    def operation(self, x):
+        """
+        operation takes a AugmentCropModule and x, a tensor and performs a
+        cropping operation of the input module in the current time slice.
+
+        Args:
+          x:                    tensor, [B,H,W,C]
+        Returns:
+          ret:                  tensor, [B,self.height,self.width,C]
+        """
+        def apply_transformation():
+            return tf.image.resize_image_with_crop_or_pad(x, self.height,
+                                                          self.width)
+
+        # very specific transformation for the os-ycb dataset
+        def apply_alt_transformation():
+            return tf.image.resize_image_with_crop_or_pad(x, self.height//5*4,
+                                                          self.width//5*4)
+
+        ret = tf.cond(self.is_training, apply_transformation,
+                      apply_alt_transformation)
+        return ret
 
 
 class InputCanvasModule(OperationModule):
-  """
-  InputCanvasModule is an abstract class. It inherits from OperationModule and takes no input.
-  It holds a place where the user can feed in a value to be used in the graph. Additionally
-  it creates a trainable variable of the same size to visualize network internals.
-  """
-  def __init__(self, name, shape, trainable_input, dtype=tf.float32):
-    super().__init__(name, shape, trainable_input, dtype)
-    self.shape = shape
-    self.dtype = dtype
-    self.trainable_input = trainable_input
-    self.placeholder = tf.placeholder(shape=shape, dtype=dtype, name=self.name)
-    self.canvas = tf.Variable(tf.truncated_normal(shape=self.shape, stddev=0.1), name=name)
-    #self.canvas = tf.Variable(tf.zeros(shape=self.shape), name=name)
-    #self.canvas = tf.get_variable(name=self.name, shape=[],dtype=tf.float32)
+    """
+    InputCanvasModule inherits from OperationModule and takes no input.
+    It holds a place where the user can feed in a value to be used in the
+    graph. Additionally it creates a trainable variable of the same size to
+    visualize network internals.
+    """
+    def __init__(self, name, shape, trainable_input, dtype=tf.float32):
+        super().__init__(name, shape, trainable_input, dtype)
+        self.shape = shape
+        self.dtype = dtype
+        self.trainable_input = trainable_input
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
+                                          name=self.name)
+        self.canvas = tf.Variable(tf.truncated_normal(shape=self.shape,
+                                  stddev=0.1), name=name)
+        # self.canvas = tf.Variable(tf.zeros(shape=self.shape), name=name)
+        # self.canvas = tf.get_variable(name=self.name,
+        #                               shape=[],dtype=tf.float32)
 
+    def operation(self):
+        def return_placeholder():
+            return tf.cast(self.placeholder, tf.float32)
 
+        def return_trainable_input():
+            return self.canvas
 
-  def operation(self):
-    def return_placeholder():
-      return tf.cast(self.placeholder, tf.float32)
-    def return_trainable_input():
-      return self.canvas
-
-    ret = tf.cond(self.trainable_input, return_trainable_input, return_placeholder)
-    return ret
-
+        ret = tf.cond(self.trainable_input, return_trainable_input,
+                      return_placeholder)
+        return ret
 
 
 class InputSwitchModule(OperationModule):
-  """
-  InputCanvasModule is an abstract class. It inherits from OperationModule and takes no input.
-  It holds a place where the user can feed in a value to be used in the graph. Additionally
-  it creates a trainable variable of the same size to visualize network internals.
-  """
-  def __init__(self, name, shape, alt_input, dtype=tf.float32):
-    super().__init__(name, shape, alt_input, dtype)
-    self.shape = shape
-    self.dtype = dtype
-    self.alt_input = alt_input
-    self.placeholder = tf.placeholder(shape=shape, dtype=dtype, name=self.name)
+    """
+    InputSwitchModule inherits from OperationModule and takes one input.
+    It holds a place where the user can feed in a value
+    to be used in the graph.
+    """
+    def __init__(self, name, shape, alt_input, dtype=tf.float32):
+        super().__init__(name, shape, alt_input, dtype)
+        self.shape = shape
+        self.dtype = dtype
+        self.alt_input = alt_input
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
+                                          name=self.name)
 
+    def operation(self, x):
+        def return_placeholder():
+            return tf.cast(self.placeholder, tf.float32)
 
-  def operation(self, x):
-    def return_placeholder():
-      return tf.cast(self.placeholder, tf.float32)
-    def return_alt_input():
-      return x
+        def return_alt_input():
+            return x
 
-    ret = tf.cond(self.alt_input, return_alt_input, return_placeholder)
-    return ret
+        ret = tf.cond(self.alt_input, return_alt_input, return_placeholder)
+        return ret
 
 
 class SwitchModule(OperationModule):
-  """
-  SwitchModule inherits from OperationModule.
-  It takes exactly two modules as an input and a boolean to decide
-  which input to forward
-  """
-  def __init__(self, name, alt_input, dtype=tf.float32):
-    super().__init__(name, alt_input)
-    self.alt_input = alt_input
-    self.dtype = dtype
+    """
+    SwitchModule inherits from OperationModule. It takes exactly two modules as
+    an input and a boolean to decide which input to forward
+    """
+    def __init__(self, name, alt_input, dtype=tf.float32):
+        super().__init__(name, alt_input)
+        self.alt_input = alt_input
+        self.dtype = dtype
 
+    def operation(self, x1, x2):
+        def return_input1():
+            return tf.cast(x1, self.dtype)
 
-  def operation(self, x1, x2):
-    def return_input1():
-      return tf.cast(x1, self.dtype)
-    def return_input2():
-      return tf.cast(x2, self.dtype)
+        def return_input2():
+            return tf.cast(x2, self.dtype)
 
-    ret = tf.cond(self.alt_input, return_input2, return_input1)
-    return ret
-
+        ret = tf.cond(self.alt_input, return_input2, return_input1)
+        return ret
 
 
 class MaxPoolingWithArgmaxModule(OperationModule):
-  """
-  MaxPoolingWithArgmaxModule inherits from OperationModule. It takes a single input module and
-  performs a maxpooling with argmax operation
-  """
-  def __init__(self, name, ksize, strides, padding='SAME'):
     """
-    Creates a MaxPoolingWithArgmaxModule object
-
-    Args:
-      name:                 string, name of the Module
-      ksize:
-      strides:
-      padding:
+    MaxPoolingWithArgmaxModule inherits from OperationModule. It takes a
+    single input module and performs a maxpooling with argmax operation.
     """
-    super().__init__(name, ksize, strides, padding)
-    self.ksize = ksize
-    self.strides = strides
-    self.padding = padding
+    def __init__(self, name, ksize, strides, padding='SAME'):
+        """
+        Creates a MaxPoolingWithArgmaxModule object
 
+        Args:
+          name:                 string, name of the Module
+          ksize:
+          strides:
+          padding:
+        """
+        super().__init__(name, ksize, strides, padding)
+        self.ksize = ksize
+        self.strides = strides
+        self.padding = padding
 
-  def operation(self, x):
-    """
-    operation takes a MaxPoolingModule and x, a 4D tensor and performs a maxpooling of
-    the input module in the current time slice
+    def operation(self, x):
+        """
+        operation takes a MaxPoolingModule and x, a 4D tensor and performs a
+        maxpooling of the input module in the current time slice.
 
-    Args:
-      x:                    4D tensor [B,H,W,C]
-    Returns:
-      ?
-    """
-    out, mask = tf.nn.max_pool_with_argmax(x, self.ksize, self.strides, self.padding, name=self.name)
-    self.mask = tf.stop_gradient(mask)
-    return out
-
-
-
-
+        Args:
+          x:                    4D tensor, [B,H,W,C]
+        Returns:
+          ?:                    4D tensor, [B,H,W,C]
+        """
+        out, mask = tf.nn.max_pool_with_argmax(x, self.ksize, self.strides,
+                                               self.padding, name=self.name)
+        self.mask = tf.stop_gradient(mask)
+        return out
 
 
 class UnpoolingModule(OperationModule):
-  """
-  UnpoolingModule inherits from OperationModule. It takes a exactly two input modules and
-  performs an unpooling operation
-  """
-  def __init__(self, name, ksize, strides, padding='SAME'):
     """
-    Creates a UnpoolingModule object
-
-    Args:
-      name:                 string, name of the Module
-      ksize:
-      strides:
-      padding:
+    UnpoolingModule inherits from OperationModule. It takes a exactly two
+    input modules and performs an unpooling operation
     """
-    super().__init__(name, ksize, strides, padding)
-    self.ksize = ksize
-    self.strides = strides
-    self.padding = padding
+    def __init__(self, name, ksize, strides, padding='SAME'):
+        """
+        Creates a UnpoolingModule object
 
-  def operation(self, *args):
-    """
-    operation takes a UnpoolingModule, a 4D tensor and|or a MaxPoolingWithArgmaxModule and performs a maxpooling of
-    the input module in the current time slice
+        Args:
+          name:                 string, name of the Module
+          ksize:
+          strides:
+          padding:
+        """
+        super().__init__(name, ksize, strides, padding)
+        self.ksize = ksize
+        self.strides = strides
+        self.padding = padding
 
-    Args:
-      x:                    4D tensor [B,H,W,C]
-    Returns:
-      unpooled:             unpooled version of the input tensor
-    """
-    MaxArgMax, _ = self.inputs[-1]
-    argmax = MaxArgMax.mask
-    x = args[0]
+    def operation(self, *args):
+        """
+        operation takes a UnpoolingModule, a 4D tensor and|or a
+        MaxPoolingWithArgmaxModule and performs a reverse maxpooling of the
+        input module in the current time slice
 
+        Args:
+          x:                    4D tensor [B,H,W,C]
+        Returns:
+          unpooled:             4D tensor [B,H,W,C], unpooled version of the
+                                  input tensor
+        """
+        MaxArgMax, _ = self.inputs[-1]
+        argmax = MaxArgMax.mask
+        x = args[0]
 
-    unpool_shape=None
-    batch_size=None
+        unpool_shape = None
+        batch_size = None
 
-    x_shape = x.get_shape().as_list()
-    argmax_shape = argmax.get_shape().as_list()
-    assert not(x_shape[0] is None and batch_size is None), "must input batch_size if number of batch is alterable"
-    if x_shape[0] is None:
-        x_shape[0] = batch_size
-    if argmax_shape[0] is None:
-        argmax_shape[0] = x_shape[0]
-    if unpool_shape is None:
-        unpool_shape = [x_shape[i] * self.strides[i] for i in range(4)]
-        self.unpool_shape = unpool_shape
-    elif unpool_shape[0] is None:
-        unpool_shape[0] = batch_size
-    unpool = tf.get_variable(name=self.name, shape=[np.prod(unpool_shape)], initializer=tf.zeros_initializer(), trainable=False)
-    self.unpool = unpool
-    argmax = tf.cast(argmax, tf.int32)
-    argmax = tf.reshape(argmax, [np.prod(argmax_shape)])
-    x = tf.reshape(x, [np.prod(argmax.get_shape().as_list())])
-    unpool = tf.scatter_update(unpool, argmax, x)
-    unpool = tf.reshape(unpool, unpool_shape)
-    return unpool
+        x_shape = x.get_shape().as_list()
+        argmax_shape = argmax.get_shape().as_list()
+        assert not(x_shape[0] is None and batch_size is None), \
+            "must input batch_size if number of batch is alterable"
+        if x_shape[0] is None:
+            x_shape[0] = batch_size
+        if argmax_shape[0] is None:
+            argmax_shape[0] = x_shape[0]
+        if unpool_shape is None:
+            unpool_shape = [x_shape[i] * self.strides[i] for i in range(4)]
+            self.unpool_shape = unpool_shape
+        elif unpool_shape[0] is None:
+            unpool_shape[0] = batch_size
+        unpool = tf.get_variable(name=self.name, shape=[np.prod(unpool_shape)],
+                                 initializer=tf.zeros_initializer(),
+                                 trainable=False)
+        self.unpool = unpool
+        argmax = tf.cast(argmax, tf.int32)
+        argmax = tf.reshape(argmax, [np.prod(argmax_shape)])
+        x = tf.reshape(x, [np.prod(argmax.get_shape().as_list())])
+        unpool = tf.scatter_update(unpool, argmax, x)
+        unpool = tf.reshape(unpool, unpool_shape)
+        return unpool
 
 
 class UnConvolutionModule(OperationModule):
-  """
-  Conv2DTransposeModule inherits from VariableModule. It takes a single input module
-  and performs a deconvolution.
-  """
-  def __init__(self, name, filter_shape, strides, output_shape, padding='SAME'):
     """
-    Creates a Conv2DTransposeModule object
-
-    Args:
-      name:               string, name of the module
-      filter_shape:       array, defines the shape of the filter
-      output_shape:       array, output shape of the deconvolution op
-      strides:            list of ints length 4, stride of the sliding window for each dimension of input
-      padding:            string from: "SAME", "VALID", type of padding algorithm to use.
-
-    For more information see tf.nn.conv2d_transpose
+    UnConvolutionModule inherits from VariableModule. It takes an input
+    module and a Conv2DModule and performs a deconvolution using the weights.
     """
+    def __init__(self, name, filter_shape, strides, output_shape,
+                 padding='SAME'):
+        """
+        Creates a Conv2DTransposeModule object
 
-    self.filter_shape = filter_shape
-    super().__init__(name, filter_shape, strides, output_shape, padding)
-    self.strides = strides
-    self.output_shape = output_shape
-    self.padding = padding
+        Args:
+          name:               string, name of the module
+          filter_shape:       array, defines the shape of the filter
+          output_shape:       array, output shape of the deconvolution op
+          strides:            list of ints length 4, stride of the sliding
+                                window for each dimension of input
+          padding:            string from: "SAME", "VALID", type of padding
+                                algorithm to use.
 
+        For more information see tf.nn.conv2d_transpose
+        """
 
-  def operation(self, *args):
-    """
-    operation takes a Conv2DTransposeModule and x, a 4D tensor and performs a deconvolution of the input module
-    in the current time slice
+        self.filter_shape = filter_shape
+        super().__init__(name, filter_shape, strides, output_shape, padding)
+        self.strides = strides
+        self.output_shape = output_shape
+        self.padding = padding
 
-    Args:
-      x:                    4D tensor [B,H,W,C]
-    Returns:
-      ?
-    """
-    C2D, _ = self.inputs[-1]
-    weights = C2D.conv.weights
-    x = args[0]
+    def operation(self, *args):
+        """
+        operation takes a UnConvolutionModule and x, a 4D tensor and performs a
+        deconvolution of the input module in the current time slice
 
-    return tf.nn.conv2d_transpose(x, weights, self.output_shape,
-                                    strides=self.strides, padding=self.padding, name=self.name)
+        Args:
+          x:                    4D tensor [B,H,W,C]
+        Returns:
+          ?
+        """
+        C2D, _ = self.inputs[-1]
+        weights = C2D.conv.weights
+        x = args[0]
 
-
+        return tf.nn.conv2d_transpose(x, weights, self.output_shape,
+                                      strides=self.strides,
+                                      padding=self.padding,
+                                      name=self.name)
 
 
 class PixelwiseNormalizationModule(OperationModule):
-  """
-  PixelwiseNormalizationModule inherits from OperationModule. It takes a single module as input
-  and applies pixel wise normalization across the dataset to it
-  """
-
-  def __init__(self, name, input_shape, dtype=tf.float32):
     """
-    Creates PixelwiseNormalizationModule object
-
-    Args:
-      name:                 string, name of the Module
-      dtype:                type, dtype of the tensor
+    PixelwiseNormalizationModule inherits from OperationModule. It takes a
+    single module as input and applies pixel wise normalization across the
+    dataset.
     """
-    super().__init__(name)
-    self.dtype=dtype
-    self.sxx = tf.Variable(tf.ones(input_shape), trainable=False)
-    self.sx = tf.Variable(tf.zeros(input_shape), trainable=False)
-    self.n = tf.Variable(1., trainable=False)
 
-  def operation(self, x):
-    """
-    operation takes a PixelwiseNormalizationModule, a tensor x and returns a tensor the same shape
-    with values rescaled between based on the input statistics. If statistics are not assigned,
-    operation just returns the original tensor
+    def __init__(self, name, input_shape, dtype=tf.float32):
+        """
+        Creates PixelwiseNormalizationModule object
 
-    Args:
-      x:                    tensor, RGBA image
-    Returns:
-      ?:                    tensor, same shape as x
-    """
-    sd = tf.math.sqrt(tf.subtract(tf.math.multiply(self.n,self.sxx),tf.math.square(self.sx)))/self.n
-    m = self.sx/self.n
-    rescaled_x = (tf.cast(x, self.dtype) - m)/sd
+        Args:
+          name:                 string, name of the Module
+          dtype:                type, dtype of the tensor
+        """
+        super().__init__(name)
+        self.dtype = dtype
+        self.sxx = tf.Variable(tf.ones(input_shape), trainable=False)
+        self.sx = tf.Variable(tf.zeros(input_shape), trainable=False)
+        self.n = tf.Variable(1., trainable=False)
 
-    return tf.where(tf.is_nan(rescaled_x), tf.zeros_like(rescaled_x), rescaled_x)
+    def operation(self, x):
+        """
+        operation takes a PixelwiseNormalizationModule, a tensor x and returns
+        a tensor of the same shape with values rescaled between based on the
+        input statistics. If statistics are not assigned, operation just
+        returns the original tensor
+
+        Args:
+          x:                    tensor, RGBA image
+        Returns:
+          ?:                    tensor, same shape as x
+        """
+        sd = tf.math.sqrt(tf.subtract(tf.math.multiply(self.n, self.sxx),
+                          tf.math.square(self.sx)))/self.n
+        m = self.sx/self.n
+        rescaled_x = (tf.cast(x, self.dtype) - m)/sd
+
+        return tf.where(tf.is_nan(rescaled_x), tf.zeros_like(rescaled_x),
+                        rescaled_x)
 
 
 if __name__ == '__main__':
