@@ -500,6 +500,8 @@ class Conv2DModule(VariableModule):
             shape=self.filter_shape,
             stddev=2 / np.prod(self.filter_shape)), name=name)
 
+# TODO: weight initializer with xavier glorot init
+
 
 class Conv2DTransposeModule(VariableModule):
     """
