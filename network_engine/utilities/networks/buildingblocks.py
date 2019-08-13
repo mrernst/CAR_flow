@@ -50,6 +50,35 @@ import numpy as np
 INDENT = 0
 
 
+# activation functions
+# -----
+
+def softmax_cross_entropy(a, b, name):
+    """
+    custom loss function based on cross-entropy that can be used within the
+    error module
+    """
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+                          logits=a, labels=b, name=name))
+
+
+def sigmoid_cross_entropy(a, b, name):
+    """
+    custom loss function based on sigmoid cross-entropy that can be used within
+    the error module
+    """
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+                          logits=a, labels=b, name=name))
+
+
+def lrn_relu(x, name=None, depth_radius=5, bias=1, alpha=1e-4, beta=0.5):
+    """
+    custom activation function that combines ReLU with a Local Response
+    Normalization and custom parameters"""
+    return tf.nn.lrn(input=tf.nn.relu(x, name), depth_radius=5, bias=1,
+                     alpha=1e-4, beta=0.5, name=name)
+
+
 # ----------
 # foundation
 # ----------
