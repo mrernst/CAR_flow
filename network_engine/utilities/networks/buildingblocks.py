@@ -246,6 +246,106 @@ class VariableModule(OperationModule):
         raise Exception("Calling abstract class, overwrite this function")
 
 
+class TimeAddModule(TimeOperationModule):
+    """
+    TimeAddModule inherits from TimeOperationModule. It can have as many
+    inputs as required and sums their outputs. It does support recursions.
+    """
+
+    def operation(self, *args):
+        """
+        operation takes a TimeAddModule and the input modules
+
+        Args:
+          *args:                list of modules
+
+        Returns:
+          ret:                  tensor, sum of input tensors
+        """
+        ret = args[0]
+        for e in args[1:]:
+            ret = tf.add(ret, e, name=self.name)
+        return ret
+
+
+class AddModule(OperationModule):
+    """
+    AddModule inherits from OperationModule. It can have as many inputs as
+    required and sums their outputs. It does not support recursions.
+    """
+    def operation(self, *args):
+        """
+        operation takes an AddModule and the input modules
+
+        Args:
+          *args:                list of modules
+
+        Returns:
+          ret:                    tensor, sum of input tensors
+        """
+        ret = args[0]
+        for e in args[1:]:
+            ret = tf.add(ret, e, name=self.name)
+        return ret
+
+
+class AbstractComposedModule(Module):
+    """
+    AbstractComposedModule is an abstract class. It inherits from Module
+    and lays the groundwork for a module comprised of other modules
+    """
+    def __init__(self, *args, **kwargs):
+        """
+        Creates an AbstractComposedModule Object
+        """
+        super().__init__(*args, **kwargs)
+        self.define_inner_modules(*args, **kwargs)
+        self.inputs = self.input_module.inputs
+        self.outputs = self.output_module.outputs
+
+    def create_output(self, t):
+        """
+        create_output takes an AbstractComposesModule object and an integer t.
+        It creates outputs for the modules using its inputs
+        """
+        self.output_module.create_output(t)
+
+    def define_inner_modules(self, *args, **kwargs):
+        raise Exception("Calling abstract class, overwrite this function")
+
+
+class TimeComposedModule(AbstractComposedModule, TimeOperationModule):
+    """
+    TimeComposedModule is an abstract class. It inherits from
+    AbstractComposedModule and TimeOperationModule. It allows when overwritten
+    to create a module that is composed of other modules and accept recursions.
+    See the implementation of ConvolutionalLayerModule for more info. The
+    method 'define_inner_modules' must be overwritten, the attribute
+    input_module must be set to the module which is the input of the composed
+    module. The attribute output_module must be set to the module which is the
+    output of the composed module
+    """
+    pass
+
+
+class ComposedModule(AbstractComposedModule, OperationModule):
+    """
+    ComposedModule is an abstract class. It inherits from
+    AbstractComposedModule and OperationModule. It allows when overwritten to
+    create a module that is composed of other modules and does not accept
+    recursions. See the implementation of ConvolutionalLayerModule for more
+    info. The method 'define_inner_modules' must be overwritten, the attribute
+    input_module must be set to the module which is the input of the composed
+    module, the attribute output_module must be set to the module which is the
+    output of the composed module
+    """
+    pass
+
+# --------------------------
+# simple layer network parts
+# --------------------------
+
+
 class NontrainableVariableModule(VariableModule):
     """
     NontrainableVariableModule inherits from VariableModule. It holds on to a
@@ -285,12 +385,6 @@ class NontrainableVariableModule(VariableModule):
         self.variable = tf.Variable(tf.zeros(shape=self.shape,
                                     dtype=self.dtype), name=name,
                                     trainable=False)
-
-
-# --------------------------
-# simple layer network parts
-# --------------------------
-
 
 
 class BiasModule(VariableModule):
@@ -543,84 +637,6 @@ class ReshapeModule(OperationModule):
         ret = tf.reshape(x, self.shape, name=self.name)
         return ret
 
-# input transformations
-# -----
-
-
-class CropModule(OperationModule):
-    """
-    CropModule inherits from OperationModule. It takes a single input module
-    and resizes it using a central crop.
-    """
-    def __init__(self, name, height, width):
-        """
-        Creates a CropModule object
-
-        Args:
-          name:                 string, name of the Module
-          height:               int, desired output image height
-          weight:               int, desired output image width
-        """
-        super().__init__(name, height, width)
-        self.height = height
-        self.width = width
-
-    def operation(self, x):
-        """
-        operation takes a CropModule and x, a tensor and performs a
-        cropping operation of the input module in the current time slice
-
-        Args:
-          x:                    4D tensor, [B,H,W,C]
-        Returns:
-          ret:                  4D tensor, [B, self.height, self.width, C]
-        """
-        ret = tf.image.resize_image_with_crop_or_pad(x, self.height,
-                                                     self.width)
-        return ret
-
-
-class CropAndConcatModule(TimeOperationModule):
-    """
-    CropAndConcatModule inherits from TimeOperationModule. It takes exactly 2
-    input modules, crops the output of input module 1 to the size of the output
-    of input module 2 and concatenates them along a predefined axis
-    """
-
-    def __init__(self, name, axis=3, *args):
-        """
-        Creates a CropAndConcatModule
-        Args:
-          name:               string, name of the Module
-          axis:               int, dimension along which the concatination
-                              takes place
-        """
-        super().__init__(name)
-        self.axis = axis
-
-    def operation(self, x1, x2):
-        """
-        operation takes a CropAndConcatModule, tensor x1, tensor x2 and crops
-        and concatenates them together
-
-        Args:
-          x1:                 tensor
-          x2:                 tensor, same shape as x1
-        Returns:
-          ?:                  tensor (c,x,y,d), same c,x,y as tensor x1,
-                                d tensor x1 + tensor x2
-        """
-        x1_shape = tf.shape(x1)
-        x2_shape = tf.shape(x2)
-
-        # offsets for the top left corner of the crop
-        offsets = [0, (x1_shape[1] - x2_shape[1]) // 2,
-                   (x1_shape[2] - x2_shape[2]) // 2, 0]
-        size = [-1, x2_shape[1], x2_shape[2], -1]
-        x1_crop = tf.slice(x1, offsets, size)
-
-        return tf.concat([x1_crop, x2], self.axis)
-
 
 class FullyConnectedModule(VariableModule):
     """
@@ -667,6 +683,361 @@ class FullyConnectedModule(VariableModule):
         self.weights = tf.Variable(tf.truncated_normal(shape=(self.in_size,
                                    self.out_size), stddev=0.1), name=name)
 
+
+class DropoutModule(OperationModule):
+    """
+    DropoutModule inherits from OperationModule. It takes a single module as
+    input and applies dropout to the output of the input module
+    """
+    def __init__(self, name, keep_prob, noise_shape=None, seed=None):
+        """
+        Creates DropoutModule object
+
+        Args:
+          name:                 string, name of the Module
+          keep_prob:            float, the probability that each element is
+                                  kept.
+          noise_shape:          1D int tensor, representing the shape for
+                                  randomly generated keep/drop flags
+          seed:                 int, make errors reproducable by submitting
+                                  the random seed
+        """
+        super().__init__(name, keep_prob, noise_shape, seed)
+        self.keep_prob = keep_prob
+        self.noise_shape = noise_shape
+        self.seed = seed
+
+    def operation(self, x):
+        """
+        operation takes a DropoutModule, a tensor x and returns a tensor of
+        the same shape with some entries randomly set to zero
+
+        Args:
+          x:                    4D tensor, [B,H,W,C]
+        Returns:
+          ?:                    4D tensor, same shape as x
+        """
+        return tf.nn.dropout(x, keep_prob=self.keep_prob,
+                             noise_shape=self.noise_shape,
+                             seed=self.seed, name=self.name)
+
+
+class BatchNormalizationModule(OperationModule):
+    """
+    BatchNormalizationModule inherits from OperationModule. It takes a single
+    input module, performs Batch normalization and outputs a tensor of the
+    same shape as the input.
+    """
+    def __init__(self, name, n_out, is_training, beta_init=0.0, gamma_init=1.0,
+                 ema_decay_rate=0.5, moment_axes=[0, 1, 2],
+                 variance_epsilon=1e-3):
+        """
+        Creates a BatchNormalizationModule
+
+        Args:
+          name:                tensor, 4D BHWD input
+          n_out:               integer, depth of input
+          is_training:         boolean tf.Variable, true indicates
+                                 training phase
+          moment_axes:         Array of ints. Axes along which to compute mean
+                                 and variance.
+        """
+        super().__init__(name, n_out, is_training, moment_axes, ema_decay_rate)
+        self.n_out = n_out
+        self.is_training = is_training
+        self.moment_axes = moment_axes
+        self.ema_decay_rate = ema_decay_rate
+        self.variance_epsilon = variance_epsilon
+
+        self.beta = tf.Variable(tf.constant(beta_init, shape=[self.n_out]),
+                                name=self.name + '_beta', trainable=True)
+        self.gamma = tf.Variable(tf.constant(gamma_init, shape=[self.n_out]),
+                                 name=self.name + '_gamma', trainable=True)
+
+    def operation(self, x):
+        """
+        operation takes a BatchNormalizationModule and a 4D BHWD input tensor
+        and returns a tensor the same size
+
+        Args:
+          x:                   tensor, 4D [B,H,W,C]
+
+        Returns:
+          ret:                 batch-normalized tensor, 4D [B,H,W,C]
+        """
+
+        # should be only over axis 0, if used for non-conv layers
+        batch_mean, batch_var = tf.nn.moments(x, self.moment_axes,
+                                              name=self.name + '_moments')
+
+        ema = tf.train.ExponentialMovingAverage(decay=self.ema_decay_rate)
+
+        def mean_var_with_update():
+            ema_apply_op = ema.apply([batch_mean, batch_var])
+            with tf.control_dependencies([ema_apply_op]):
+                return tf.identity(batch_mean), tf.identity(batch_var)
+
+        mean, var = tf.cond(self.is_training,
+                            mean_var_with_update,
+                            lambda: (ema.average(batch_mean),
+                                     ema.average(batch_var)))
+
+        ret = tf.nn.batch_normalization(x, mean, var, self.beta, self.gamma,
+                                        self.variance_epsilon)
+        return ret
+
+
+class PlaceholderModule(OperationModule):
+    """
+    PlaceholderModule inherits from OperationModule and takes no input.
+    It holds a place where the user can feed in a value to be used in the
+    network graph.
+    [Deprecation Info]: PlaceholderModule subsumes the functionality of
+    ConstantPlaceholderModule
+    """
+    def __init__(self, name, shape, dtype=tf.float32):
+        super().__init__(name, shape, dtype)
+        self.shape = shape
+        self.dtype = dtype
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
+                                          name=self.name)
+
+    def operation(self):
+        return self.placeholder
+
+
+class TimeVaryingPlaceholderModule(PlaceholderModule):
+    """
+    TimeVaryingPlaceholderModule inherits from PlaceholderModule and takes
+    no input. It remembers the input which is fed by the user and rolls it
+    so that at each time slice the network sees a new value
+    """
+
+    def __init__(self, name, shape, dtype=tf.float32):
+        """
+        Creates a TimeVaryingPlaceholderModule object
+
+        Args:
+          name:                 string, name of the Module
+          shape:                array, shape of the placeholder
+          dtype:                type, dtype of the placeholder
+        """
+        super().__init__(name, shape, dtype)
+        self.outputs[0] = self.placeholder
+
+    def get_max_time(self):
+        return len(self.outputs)
+
+    max_time = property(get_max_time)
+
+    def need_to_create_output(self, t):
+        return True if t >= self.max_time else False
+
+    def shift_by_one(self):
+        for i in reversed(range(self.max_time)):
+            self.outputs[i + 1] = self.outputs[i]
+        self.outputs[0] = self.delayed(self.outputs[1])
+
+    def delayed(self, v):
+        v_curr = tf.Variable(tf.zeros(shape=v.shape), trainable=False)
+        v_prev = tf.Variable(tf.zeros(shape=v.shape), trainable=False)
+        with tf.control_dependencies([v_prev.assign(v_curr)]):
+            with tf.control_dependencies([v_curr.assign(v)]):
+                v_curr = tf.identity(v_curr)
+                v_prev = tf.identity(v_prev)
+                return v_prev
+
+    def create_output(self, t):
+        global INDENT
+        print("|  " * INDENT + "creating output of {} at time {}".format(
+            self.name, t))
+        for i in range(t - self.max_time + 1):
+            self.shift_by_one()
+        print("|  " * INDENT + "|{}".format(self.outputs[t]))
+
+
+class ActivationModule(OperationModule):
+    """
+    ActivationModule inherits from OperationModule. It takes a single
+    input module and applies and activation function to it
+    """
+
+    def __init__(self, name, activation):
+        """
+        Creates an ActivationModule object
+
+        Args:
+          name:                 string, name of the Module
+          activation:           callable, tf activation function
+        """
+        super().__init__(name, activation)
+        self.activation = activation
+
+    def operation(self, x):
+        """
+        operation takes a ActivationModule, a tensor x and returns
+        the resulting tensor after applying the activation function
+
+        Args:
+          x:                    tensor, preactivation
+
+        Returns:
+          ?:                    tensor, same shape as x
+        """
+        return self.activation(x, name=self.name)
+
+
+class MaxPoolingWithArgmaxModule(OperationModule):
+    """
+    MaxPoolingWithArgmaxModule inherits from OperationModule. It takes a
+    single input module and performs a maxpooling with argmax operation.
+    """
+    def __init__(self, name, ksize, strides, padding='SAME'):
+        """
+        Creates a MaxPoolingWithArgmaxModule object
+
+        Args:
+          name:                 string, name of the Module
+          ksize:
+          strides:
+          padding:
+        """
+        super().__init__(name, ksize, strides, padding)
+        self.ksize = ksize
+        self.strides = strides
+        self.padding = padding
+
+    def operation(self, x):
+        """
+        operation takes a MaxPoolingModule and x, a 4D tensor and performs a
+        maxpooling of the input module in the current time slice.
+
+        Args:
+          x:                    4D tensor, [B,H,W,C]
+        Returns:
+          ?:                    4D tensor, [B,H,W,C]
+        """
+        out, mask = tf.nn.max_pool_with_argmax(x, self.ksize, self.strides,
+                                               self.padding, name=self.name)
+        self.mask = tf.stop_gradient(mask)
+        return out
+
+
+class UnpoolingModule(OperationModule):
+    """
+    UnpoolingModule inherits from OperationModule. It takes a exactly two
+    input modules and performs an unpooling operation
+    """
+    def __init__(self, name, ksize, strides, padding='SAME'):
+        """
+        Creates a UnpoolingModule object
+
+        Args:
+          name:                 string, name of the Module
+          ksize:
+          strides:
+          padding:
+        """
+        super().__init__(name, ksize, strides, padding)
+        self.ksize = ksize
+        self.strides = strides
+        self.padding = padding
+
+    def operation(self, *args):
+        """
+        operation takes a UnpoolingModule, a 4D tensor and|or a
+        MaxPoolingWithArgmaxModule and performs a reverse maxpooling of the
+        input module in the current time slice
+
+        Args:
+          x:                    4D tensor [B,H,W,C]
+        Returns:
+          unpooled:             4D tensor [B,H,W,C], unpooled version of the
+                                  input tensor
+        """
+        MaxArgMax, _ = self.inputs[-1]
+        argmax = MaxArgMax.mask
+        x = args[0]
+
+        unpool_shape = None
+        batch_size = None
+
+        x_shape = x.get_shape().as_list()
+        argmax_shape = argmax.get_shape().as_list()
+        assert not(x_shape[0] is None and batch_size is None), \
+            "must input batch_size if number of batch is alterable"
+        if x_shape[0] is None:
+            x_shape[0] = batch_size
+        if argmax_shape[0] is None:
+            argmax_shape[0] = x_shape[0]
+        if unpool_shape is None:
+            unpool_shape = [x_shape[i] * self.strides[i] for i in range(4)]
+            self.unpool_shape = unpool_shape
+        elif unpool_shape[0] is None:
+            unpool_shape[0] = batch_size
+        unpool = tf.get_variable(name=self.name, shape=[np.prod(unpool_shape)],
+                                 initializer=tf.zeros_initializer(),
+                                 trainable=False)
+        self.unpool = unpool
+        argmax = tf.cast(argmax, tf.int32)
+        argmax = tf.reshape(argmax, [np.prod(argmax_shape)])
+        x = tf.reshape(x, [np.prod(argmax.get_shape().as_list())])
+        unpool = tf.scatter_update(unpool, argmax, x)
+        unpool = tf.reshape(unpool, unpool_shape)
+        return unpool
+
+
+class UnConvolutionModule(OperationModule):
+    """
+    UnConvolutionModule inherits from VariableModule. It takes an input
+    module and a Conv2DModule and performs a deconvolution using the weights.
+    """
+    def __init__(self, name, filter_shape, strides, output_shape,
+                 padding='SAME'):
+        """
+        Creates a Conv2DTransposeModule object
+
+        Args:
+          name:               string, name of the module
+          filter_shape:       array, defines the shape of the filter
+          output_shape:       array, output shape of the deconvolution op
+          strides:            list of ints length 4, stride of the sliding
+                                window for each dimension of input
+          padding:            string from: "SAME", "VALID", type of padding
+                                algorithm to use.
+
+        For more information see tf.nn.conv2d_transpose
+        """
+
+        self.filter_shape = filter_shape
+        super().__init__(name, filter_shape, strides, output_shape, padding)
+        self.strides = strides
+        self.output_shape = output_shape
+        self.padding = padding
+
+    def operation(self, *args):
+        """
+        operation takes a UnConvolutionModule and x, a 4D tensor and performs a
+        deconvolution of the input module in the current time slice
+
+        Args:
+          x:                    4D tensor [B,H,W,C]
+        Returns:
+          ?
+        """
+        C2D, _ = self.inputs[-1]
+        weights = C2D.conv.weights
+        x = args[0]
+
+        return tf.nn.conv2d_transpose(x, weights, self.output_shape,
+                                      strides=self.strides,
+                                      padding=self.padding,
+                                      name=self.name)
+
+
+# -----------------
+# output statistics
+# -----------------
 
 class ErrorModule(OperationModule):
     """
@@ -760,96 +1131,6 @@ class BooleanComparisonModule(OperationModule):
           ?:                    tensor, bool
         """
         return tf.equal(x1, x2)
-
-
-class DropoutModule(OperationModule):
-    """
-    DropoutModule inherits from OperationModule. It takes a single module as
-    input and applies dropout to the output of the input module
-    """
-    def __init__(self, name, keep_prob, noise_shape=None, seed=None):
-        """
-        Creates DropoutModule object
-
-        Args:
-          name:                 string, name of the Module
-          keep_prob:            float, the probability that each element is
-                                  kept.
-          noise_shape:          1D int tensor, representing the shape for
-                                  randomly generated keep/drop flags
-          seed:                 int, make errors reproducable by submitting
-                                  the random seed
-        """
-        super().__init__(name, keep_prob, noise_shape, seed)
-        self.keep_prob = keep_prob
-        self.noise_shape = noise_shape
-        self.seed = seed
-
-    def operation(self, x):
-        """
-        operation takes a DropoutModule, a tensor x and returns a tensor of
-        the same shape with some entries randomly set to zero
-
-        Args:
-          x:                    4D tensor, [B,H,W,C]
-        Returns:
-          ?:                    4D tensor, same shape as x
-        """
-        return tf.nn.dropout(x, keep_prob=self.keep_prob,
-                             noise_shape=self.noise_shape,
-                             seed=self.seed, name=self.name)
-
-
-class NormalizationModule(OperationModule):
-    """
-    NormalizationModule inherits from OperationModule. It takes a single module
-    as input and applies normalization to it
-    (i.e. values between inp_min and inp_max)
-    """
-
-    def __init__(self, name, inp_max=1, inp_min=-1, dtype=tf.float32):
-        """
-        Creates NormalizationModule object
-
-        Args:
-          name:                 string, name of the Module
-          inp_max:              float, maximum of the rescaled range,
-                                  default: 1
-          inp_min:              float, minimum of the rescaled range,
-                                  default: -1
-          dtype:                type, dtype of the tensor
-        """
-        super().__init__(name, inp_max, inp_min)
-        self.inp_max = inp_max
-        self.inp_min = inp_min
-        self.dtype = dtype
-
-    def operation(self, x):
-        """
-        operation takes a NormalizationModule, a tensor x and returns a tensor
-        of the same shape with values rescaled between inp_max, inp_min
-
-        Args:
-          x:                    4D tensor, [B,H,W,C]
-        Returns:
-          ?:                    4D tensor, [B,H,W,C], same shape as x
-        """
-        casted_x = tf.cast(x, dtype=self.dtype)
-
-        def apply_transformation():
-            rescaled_x = (self.inp_max-self.inp_min) * \
-                (casted_x - tf.reduce_min(casted_x)) / \
-                (tf.reduce_max(casted_x) - tf.reduce_min(casted_x)) + \
-                self.inp_min
-            return rescaled_x
-
-        def ret_identity():
-            return casted_x
-
-        ret = tf.cond(tf.equal(tf.reduce_max(casted_x), 0.),
-                      ret_identity, apply_transformation)
-
-        return ret
 
 
 class OptimizerModule(OperationModule):
@@ -971,270 +1252,9 @@ class NHotBatchAccuracyModule(OperationModule):
             accuracy1 = tf.reduce_mean(accuracy1)
             return accuracy1
 
-
-class PlaceholderModule(OperationModule):
-    """
-    PlaceholderModule inherits from OperationModule and takes no input.
-    It holds a place where the user can feed in a value to be used in the
-    network graph.
-    [Deprecation Info]: PlaceholderModule subsumes the functionality of
-    ConstantPlaceholderModule
-    """
-    def __init__(self, name, shape, dtype=tf.float32):
-        super().__init__(name, shape, dtype)
-        self.shape = shape
-        self.dtype = dtype
-        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
-                                          name=self.name)
-
-    def operation(self):
-        return self.placeholder
-
-
-class TimeVaryingPlaceholderModule(PlaceholderModule):
-    """
-    TimeVaryingPlaceholderModule inherits from PlaceholderModule and takes
-    no input. It remembers the input which is fed by the user and rolls it
-    so that at each time slice the network sees a new value
-    """
-
-    def __init__(self, name, shape, dtype=tf.float32):
-        """
-        Creates a TimeVaryingPlaceholderModule object
-
-        Args:
-          name:                 string, name of the Module
-          shape:                array, shape of the placeholder
-          dtype:                type, dtype of the placeholder
-        """
-        super().__init__(name, shape, dtype)
-        self.outputs[0] = self.placeholder
-
-    def get_max_time(self):
-        return len(self.outputs)
-
-    max_time = property(get_max_time)
-
-    def need_to_create_output(self, t):
-        return True if t >= self.max_time else False
-
-    def shift_by_one(self):
-        for i in reversed(range(self.max_time)):
-            self.outputs[i + 1] = self.outputs[i]
-        self.outputs[0] = self.delayed(self.outputs[1])
-
-    def delayed(self, v):
-        v_curr = tf.Variable(tf.zeros(shape=v.shape), trainable=False)
-        v_prev = tf.Variable(tf.zeros(shape=v.shape), trainable=False)
-        with tf.control_dependencies([v_prev.assign(v_curr)]):
-            with tf.control_dependencies([v_curr.assign(v)]):
-                v_curr = tf.identity(v_curr)
-                v_prev = tf.identity(v_prev)
-                return v_prev
-
-    def create_output(self, t):
-        global INDENT
-        print("|  " * INDENT + "creating output of {} at time {}".format(
-            self.name, t))
-        for i in range(t - self.max_time + 1):
-            self.shift_by_one()
-        print("|  " * INDENT + "|{}".format(self.outputs[t]))
-
-
-class ActivationModule(OperationModule):
-    """
-    ActivationModule inherits from OperationModule. It takes a single
-    input module and applies and activation function to it
-    """
-
-    def __init__(self, name, activation):
-        """
-        Creates an ActivationModule object
-
-        Args:
-          name:                 string, name of the Module
-          activation:           callable, tf activation function
-        """
-        super().__init__(name, activation)
-        self.activation = activation
-
-    def operation(self, x):
-        """
-        operation takes a ActivationModule, a tensor x and returns
-        the resulting tensor after applying the activation function
-
-        Args:
-          x:                    tensor, preactivation
-
-        Returns:
-          ?:                    tensor, same shape as x
-        """
-        return self.activation(x, name=self.name)
-
-
-class TimeAddModule(TimeOperationModule):
-    """
-    TimeAddModule inherits from TimeOperationModule. It can have as many
-    inputs as required and sums their outputs. It does support recursions.
-    """
-
-    def operation(self, *args):
-        """
-        operation takes a TimeAddModule and the input modules
-
-        Args:
-          *args:                list of modules
-
-        Returns:
-          ret:                  tensor, sum of input tensors
-        """
-        ret = args[0]
-        for e in args[1:]:
-            ret = tf.add(ret, e, name=self.name)
-        return ret
-
-
-class AddModule(OperationModule):
-    """
-    AddModule inherits from OperationModule. It can have as many inputs as
-    required and sums their outputs. It does not support recursions.
-    """
-    def operation(self, *args):
-        """
-        operation takes an AddModule and the input modules
-
-        Args:
-          *args:                list of modules
-
-        Returns:
-          ret:                    tensor, sum of input tensors
-        """
-        ret = args[0]
-        for e in args[1:]:
-            ret = tf.add(ret, e, name=self.name)
-        return ret
-
-
-class BatchNormalizationModule(OperationModule):
-    """
-    BatchNormalizationModule inherits from OperationModule. It takes a single
-    input module, performs Batch normalization and outputs a tensor of the
-    same shape as the input.
-    """
-    def __init__(self, name, n_out, is_training, beta_init=0.0, gamma_init=1.0,
-                 ema_decay_rate=0.5, moment_axes=[0, 1, 2],
-                 variance_epsilon=1e-3):
-        """
-        Creates a BatchNormalizationModule
-
-        Args:
-          name:                tensor, 4D BHWD input
-          n_out:               integer, depth of input
-          is_training:         boolean tf.Variable, true indicates
-                                 training phase
-          moment_axes:         Array of ints. Axes along which to compute mean
-                                 and variance.
-        """
-        super().__init__(name, n_out, is_training, moment_axes, ema_decay_rate)
-        self.n_out = n_out
-        self.is_training = is_training
-        self.moment_axes = moment_axes
-        self.ema_decay_rate = ema_decay_rate
-        self.variance_epsilon = variance_epsilon
-
-        self.beta = tf.Variable(tf.constant(beta_init, shape=[self.n_out]),
-                                name=self.name + '_beta', trainable=True)
-        self.gamma = tf.Variable(tf.constant(gamma_init, shape=[self.n_out]),
-                                 name=self.name + '_gamma', trainable=True)
-
-    def operation(self, x):
-        """
-        operation takes a BatchNormalizationModule and a 4D BHWD input tensor
-        and returns a tensor the same size
-
-        Args:
-          x:                   tensor, 4D [B,H,W,C]
-
-        Returns:
-          ret:                 batch-normalized tensor, 4D [B,H,W,C]
-        """
-
-        # should be only over axis 0, if used for non-conv layers
-        batch_mean, batch_var = tf.nn.moments(x, self.moment_axes,
-                                              name=self.name + '_moments')
-
-        ema = tf.train.ExponentialMovingAverage(decay=self.ema_decay_rate)
-
-        def mean_var_with_update():
-            ema_apply_op = ema.apply([batch_mean, batch_var])
-            with tf.control_dependencies([ema_apply_op]):
-                return tf.identity(batch_mean), tf.identity(batch_var)
-
-        mean, var = tf.cond(self.is_training,
-                            mean_var_with_update,
-                            lambda: (ema.average(batch_mean),
-                                     ema.average(batch_var)))
-
-        ret = tf.nn.batch_normalization(x, mean, var, self.beta, self.gamma,
-                                        self.variance_epsilon)
-        return ret
-
-
 # ---------------------------
 # complex layer network parts
 # ---------------------------
-
-class AbstractComposedModule(Module):
-    """
-    AbstractComposedModule is an abstract class. It inherits from Module
-    and lays the groundwork for a module comprised of other modules
-    """
-    def __init__(self, *args, **kwargs):
-        """
-        Creates an AbstractComposedModule Object
-        """
-        super().__init__(*args, **kwargs)
-        self.define_inner_modules(*args, **kwargs)
-        self.inputs = self.input_module.inputs
-        self.outputs = self.output_module.outputs
-
-    def create_output(self, t):
-        """
-        create_output takes an AbstractComposesModule object and an integer t.
-        It creates outputs for the modules using its inputs
-        """
-        self.output_module.create_output(t)
-
-    def define_inner_modules(self, *args, **kwargs):
-        raise Exception("Calling abstract class, overwrite this function")
-
-
-class TimeComposedModule(AbstractComposedModule, TimeOperationModule):
-    """
-    TimeComposedModule is an abstract class. It inherits from
-    AbstractComposedModule and TimeOperationModule. It allows when overwritten
-    to create a module that is composed of other modules and accept recursions.
-    See the implementation of ConvolutionalLayerModule for more info. The
-    method 'define_inner_modules' must be overwritten, the attribute
-    input_module must be set to the module which is the input of the composed
-    module. The attribute output_module must be set to the module which is the
-    output of the composed module
-    """
-    pass
-
-
-class ComposedModule(AbstractComposedModule, OperationModule):
-    """
-    ComposedModule is an abstract class. It inherits from
-    AbstractComposedModule and OperationModule. It allows when overwritten to
-    create a module that is composed of other modules and does not accept
-    recursions. See the implementation of ConvolutionalLayerModule for more
-    info. The method 'define_inner_modules' must be overwritten, the attribute
-    input_module must be set to the module which is the input of the composed
-    module, the attribute output_module must be set to the module which is the
-    output of the composed module
-    """
-    pass
 
 
 class ConvolutionalLayerModule(ComposedModule):
@@ -1380,6 +1400,86 @@ class FullyConnectedLayerWithBatchNormalizationModule(ComposedModule):
         # self.preactivation.add_input(self.bias)
         self.batchnorm.add_input(self.preactivation)
         self.output_module.add_input(self.batchnorm)
+
+
+# ---------------------
+# input transformations
+# ---------------------
+
+
+class CropModule(OperationModule):
+    """
+    CropModule inherits from OperationModule. It takes a single input module
+    and resizes it using a central crop.
+    """
+    def __init__(self, name, height, width):
+        """
+        Creates a CropModule object
+
+        Args:
+          name:                 string, name of the Module
+          height:               int, desired output image height
+          weight:               int, desired output image width
+        """
+        super().__init__(name, height, width)
+        self.height = height
+        self.width = width
+
+    def operation(self, x):
+        """
+        operation takes a CropModule and x, a tensor and performs a
+        cropping operation of the input module in the current time slice
+
+        Args:
+          x:                    4D tensor, [B,H,W,C]
+        Returns:
+          ret:                  4D tensor, [B, self.height, self.width, C]
+        """
+        ret = tf.image.resize_image_with_crop_or_pad(x, self.height,
+                                                     self.width)
+        return ret
+
+
+class CropAndConcatModule(TimeOperationModule):
+    """
+    CropAndConcatModule inherits from TimeOperationModule. It takes exactly 2
+    input modules, crops the output of input module 1 to the size of the output
+    of input module 2 and concatenates them along a predefined axis
+    """
+
+    def __init__(self, name, axis=3, *args):
+        """
+        Creates a CropAndConcatModule
+        Args:
+          name:               string, name of the Module
+          axis:               int, dimension along which the concatination
+                              takes place
+        """
+        super().__init__(name)
+        self.axis = axis
+
+    def operation(self, x1, x2):
+        """
+        operation takes a CropAndConcatModule, tensor x1, tensor x2 and crops
+        and concatenates them together
+
+        Args:
+          x1:                 tensor
+          x2:                 tensor, same shape as x1
+        Returns:
+          ?:                  tensor (c,x,y,d), same c,x,y as tensor x1,
+                                d tensor x1 + tensor x2
+        """
+        x1_shape = tf.shape(x1)
+        x2_shape = tf.shape(x2)
+
+        # offsets for the top left corner of the crop
+        offsets = [0, (x1_shape[1] - x2_shape[1]) // 2,
+                   (x1_shape[2] - x2_shape[2]) // 2, 0]
+        size = [-1, x2_shape[1], x2_shape[2], -1]
+        x1_crop = tf.slice(x1, offsets, size)
+
+        return tf.concat([x1_crop, x2], self.axis)
 
 
 class AugmentModule(ComposedModule):
@@ -1720,152 +1820,56 @@ class SwitchModule(OperationModule):
         return ret
 
 
-class MaxPoolingWithArgmaxModule(OperationModule):
+class NormalizationModule(OperationModule):
     """
-    MaxPoolingWithArgmaxModule inherits from OperationModule. It takes a
-    single input module and performs a maxpooling with argmax operation.
+    NormalizationModule inherits from OperationModule. It takes a single module
+    as input and applies normalization to it
+    (i.e. values between inp_min and inp_max)
     """
-    def __init__(self, name, ksize, strides, padding='SAME'):
+
+    def __init__(self, name, inp_max=1, inp_min=-1, dtype=tf.float32):
         """
-        Creates a MaxPoolingWithArgmaxModule object
+        Creates NormalizationModule object
 
         Args:
           name:                 string, name of the Module
-          ksize:
-          strides:
-          padding:
+          inp_max:              float, maximum of the rescaled range,
+                                  default: 1
+          inp_min:              float, minimum of the rescaled range,
+                                  default: -1
+          dtype:                type, dtype of the tensor
         """
-        super().__init__(name, ksize, strides, padding)
-        self.ksize = ksize
-        self.strides = strides
-        self.padding = padding
+        super().__init__(name, inp_max, inp_min)
+        self.inp_max = inp_max
+        self.inp_min = inp_min
+        self.dtype = dtype
 
     def operation(self, x):
         """
-        operation takes a MaxPoolingModule and x, a 4D tensor and performs a
-        maxpooling of the input module in the current time slice.
+        operation takes a NormalizationModule, a tensor x and returns a tensor
+        of the same shape with values rescaled between inp_max, inp_min
 
         Args:
           x:                    4D tensor, [B,H,W,C]
         Returns:
-          ?:                    4D tensor, [B,H,W,C]
+          ?:                    4D tensor, [B,H,W,C], same shape as x
         """
-        out, mask = tf.nn.max_pool_with_argmax(x, self.ksize, self.strides,
-                                               self.padding, name=self.name)
-        self.mask = tf.stop_gradient(mask)
-        return out
+        casted_x = tf.cast(x, dtype=self.dtype)
 
+        def apply_transformation():
+            rescaled_x = (self.inp_max-self.inp_min) * \
+                (casted_x - tf.reduce_min(casted_x)) / \
+                (tf.reduce_max(casted_x) - tf.reduce_min(casted_x)) + \
+                self.inp_min
+            return rescaled_x
 
-class UnpoolingModule(OperationModule):
-    """
-    UnpoolingModule inherits from OperationModule. It takes a exactly two
-    input modules and performs an unpooling operation
-    """
-    def __init__(self, name, ksize, strides, padding='SAME'):
-        """
-        Creates a UnpoolingModule object
+        def ret_identity():
+            return casted_x
 
-        Args:
-          name:                 string, name of the Module
-          ksize:
-          strides:
-          padding:
-        """
-        super().__init__(name, ksize, strides, padding)
-        self.ksize = ksize
-        self.strides = strides
-        self.padding = padding
+        ret = tf.cond(tf.equal(tf.reduce_max(casted_x), 0.),
+                      ret_identity, apply_transformation)
 
-    def operation(self, *args):
-        """
-        operation takes a UnpoolingModule, a 4D tensor and|or a
-        MaxPoolingWithArgmaxModule and performs a reverse maxpooling of the
-        input module in the current time slice
-
-        Args:
-          x:                    4D tensor [B,H,W,C]
-        Returns:
-          unpooled:             4D tensor [B,H,W,C], unpooled version of the
-                                  input tensor
-        """
-        MaxArgMax, _ = self.inputs[-1]
-        argmax = MaxArgMax.mask
-        x = args[0]
-
-        unpool_shape = None
-        batch_size = None
-
-        x_shape = x.get_shape().as_list()
-        argmax_shape = argmax.get_shape().as_list()
-        assert not(x_shape[0] is None and batch_size is None), \
-            "must input batch_size if number of batch is alterable"
-        if x_shape[0] is None:
-            x_shape[0] = batch_size
-        if argmax_shape[0] is None:
-            argmax_shape[0] = x_shape[0]
-        if unpool_shape is None:
-            unpool_shape = [x_shape[i] * self.strides[i] for i in range(4)]
-            self.unpool_shape = unpool_shape
-        elif unpool_shape[0] is None:
-            unpool_shape[0] = batch_size
-        unpool = tf.get_variable(name=self.name, shape=[np.prod(unpool_shape)],
-                                 initializer=tf.zeros_initializer(),
-                                 trainable=False)
-        self.unpool = unpool
-        argmax = tf.cast(argmax, tf.int32)
-        argmax = tf.reshape(argmax, [np.prod(argmax_shape)])
-        x = tf.reshape(x, [np.prod(argmax.get_shape().as_list())])
-        unpool = tf.scatter_update(unpool, argmax, x)
-        unpool = tf.reshape(unpool, unpool_shape)
-        return unpool
-
-
-class UnConvolutionModule(OperationModule):
-    """
-    UnConvolutionModule inherits from VariableModule. It takes an input
-    module and a Conv2DModule and performs a deconvolution using the weights.
-    """
-    def __init__(self, name, filter_shape, strides, output_shape,
-                 padding='SAME'):
-        """
-        Creates a Conv2DTransposeModule object
-
-        Args:
-          name:               string, name of the module
-          filter_shape:       array, defines the shape of the filter
-          output_shape:       array, output shape of the deconvolution op
-          strides:            list of ints length 4, stride of the sliding
-                                window for each dimension of input
-          padding:            string from: "SAME", "VALID", type of padding
-                                algorithm to use.
-
-        For more information see tf.nn.conv2d_transpose
-        """
-
-        self.filter_shape = filter_shape
-        super().__init__(name, filter_shape, strides, output_shape, padding)
-        self.strides = strides
-        self.output_shape = output_shape
-        self.padding = padding
-
-    def operation(self, *args):
-        """
-        operation takes a UnConvolutionModule and x, a 4D tensor and performs a
-        deconvolution of the input module in the current time slice
-
-        Args:
-          x:                    4D tensor [B,H,W,C]
-        Returns:
-          ?
-        """
-        C2D, _ = self.inputs[-1]
-        weights = C2D.conv.weights
-        x = args[0]
-
-        return tf.nn.conv2d_transpose(x, weights, self.output_shape,
-                                      strides=self.strides,
-                                      padding=self.padding,
-                                      name=self.name)
+        return ret
 
 
 class PixelwiseNormalizationModule(OperationModule):
