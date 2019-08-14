@@ -52,8 +52,6 @@ import numpy as np
 # custom functions
 # -----
 
-from utilities.io import iohelper, pathfinder
-
 
 # --------------------------
 # main experiment parameters
@@ -61,14 +59,14 @@ from utilities.io import iohelper, pathfinder
 
 
 def get_par():
-    """ Get main parameters.
-    For each experiment, change these parameters manually.
+    """
+    Get main parameters.
+    For each experiment, change these parameters manually for different
+    experiments.
     """
 
     par = {}
 
-    par['datadirectory'] = "/home/mernst/Code/saturn/datasets/"
-    par['experimentdirectory'] = "/home/mernst/Code/saturn/experiments/"
     par['newexperiment'] = True                  # create a new exp. folder
     par['N_e'] = 1600                            # excitatory neurons
     par['N_u'] = int(par.N_e/60)                 # neurons in each input pool
@@ -81,11 +79,15 @@ def get_par():
 
 
 def get_aux():
-    """ Get auxiliary parameters.
-    These auxiliary parameters do not have to be changed manually.
+    """
+    Get auxiliary parameters.
+    These auxiliary parameters do not have to be changed manually for the most
+    part. Configure once in the beginning of setup.
     """
 
     aux = {}
+    aux['datadirectory'] = "/home/mernst/Code/saturn/datasets/"
+    aux['experimentdirectory'] = "/home/mernst/Code/saturn/experiments/"
 
     aux['N_i'] = int(0.2 * par.N_e)              # inhibitory neurons
     aux['N'] = par.N_e + aux.N_i               # total number of neurons
