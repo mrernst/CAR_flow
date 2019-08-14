@@ -6,9 +6,9 @@
 #                                                                         _.oo.
 # August 2019                                    _.u[[/;:,.         .odMMMMMM'
 #                                             .o888UU[[[/;:-.  .o@P^    MMM^
-# Filename.py                                oN88888UU[[[/;::-.        dP^
-# Description Description                   dNMMNN888UU[[[/;:--.   .o@P^
-# Description Description                  ,MMMMMMN888UU[[/;::-. o@^
+# simplercnn.py                              oN88888UU[[[/;::-.        dP^
+# network definition of                     dNMMNN888UU[[[/;:--.   .o@P^
+# Spoerer 2017 network                     ,MMMMMMN888UU[[/;::-. o@^
 #                                          NNMMMNN888UU[[[/~.o@P^
 # Markus Ernst                             888888888UU[[[/o@^-..
 #                                         oI8888UU[[[/o@P^:--..
@@ -52,12 +52,12 @@ import numpy as np
 import buildingblocks as bb
 
 
-class RCNN_1(bb.ComposedModule):
+class RCNN1(bb.ComposedModule):
     def define_inner_modules(self, name, is_training, activations,
                              conv_filter_shapes, bias_shapes, ksizes,
                              pool_strides, topdown_filter_shapes,
                              topdown_output_shapes, keep_prob, FLAGS):
-        # TODO: Fix this input mess, just input FLAGS
+        # TODO: Fix this input mess, just input FLAGS or a netparams dict
         # create all modules of the network
         # -----
 
@@ -136,14 +136,14 @@ class RCNN_1(bb.ComposedModule):
                         "fc0", bias_shapes[-1][-1], is_training, 0.0, 1.0, 0.5,
                         activations[2],
                         int(np.prod(np.array(bias_shapes[1]) /
-                            np.array(pool_strides[1]))),
+                                    np.array(pool_strides[1]))),
                         np.prod(bias_shapes[2]))
             else:
                 self.layers["fc0"] = \
                     bb.FullyConnectedLayerModule(
                         "fc0", activations[2],
                         int(np.prod(np.array(bias_shapes[1]) /
-                            np.array(pool_strides[1]))),
+                                    np.array(pool_strides[1]))),
                         np.prod(bias_shapes[2]))
 
         # connect all modules of the network in a meaningful way
