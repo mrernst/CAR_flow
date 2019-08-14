@@ -8,7 +8,7 @@
 #                                             .o888UU[[[/;:-.  .o@P^    MMM^
 # buildingblocks.py                          oN88888UU[[[/;::-.        dP^
 # connect neural networks                   dNMMNN888UU[[[/;:--.   .o@P^
-# in space and time                       ,MMMMMMN888UU[[/;::-. o@^
+# in space and time                        ,MMMMMMN888UU[[/;::-. o@^
 #                                          NNMMMNN888UU[[[/~.o@P^
 # Markus Ernst                             888888888UU[[[/o@^-..
 #                                         oI8888UU[[[/o@P^:--..
@@ -1286,6 +1286,9 @@ class NHotBatchAccuracyModule(OperationModule):
 # ---------------------------
 # complex layer network parts
 # ---------------------------
+
+# TODO: Write a composed module for CAM which basically is the last part of a
+# network but has a method that computes activation maps if desired
 
 
 class ConvolutionalLayerModule(ComposedModule):
