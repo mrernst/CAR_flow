@@ -46,40 +46,86 @@
 # -----
 import tensorflow as tf
 import numpy as np
+import os
 
 # custom functions
 # -----
 from utilities.io import iohelper, pathfinder
 from config import get_par, get_aux
 
-# custom functions 2
-# -----
-# TODO: Add these to the utilities folder
 
+class sbatch_document(object):
+    """docstring for sbatch_document."""
 
-def gen_sbatch(parameters, auxiliary_parameters):
-    """
-    gen_sbatch takes a parameter dict and a auxiliary_parameters dict and
-    generates a sbatch file for the corresponding experiment
-    """
-    pass
-
-
-def est_folders(arg):
-    """
-    est_folders takes X and establishes a folder structure given the parameters
-    of the function
-    """
-    pass
-
-
-class SbatchDocument(object):
-    """docstring for SbatchDocument."""
-
-    def __init__(self, arg):
-        super(SbatchDocument, self).__init__()
+    def __init__(self, parameters):
+        super(sbatch_document, self).__init__()
         self.arg = arg
 
+    def gen_sbatch(parameters):
+        """
+        gen_sbatch takes a parameter dict and a auxiliary_parameters dict and
+        generates a sbatch file for the corresponding experiment
+        """
+
+        header = \
+            "#!/bin/sh\n" + \
+            "#SBATCH -c 8     # cores requested\n" + \
+            "#SBATCH --mem=24000 #memory in Mb\n" + \
+            "#SBATCH -o experiments/{}/logs/{}_outfile  # send stdout\n" \
+            "#SBATCH -e experiments/{}/logs/{}_errfile  # send stderr\n" + \
+            "export PYTHONPATH=~software/tensorflow-py3-amd64-gpu\n" + \
+            "srun python3 engine.py --run {} --config_to_run {} --tb_loc {}"
+
+        middle = \
+            "#!/bin/sh\n" + \
+            "#SBATCH -c 8     # cores requested\n" + \
+            "#SBATCH --mem=24000 #memory in Mb\n" + \
+            "#SBATCH -o experiments/{}/logs/{}_outfile  # send stdout\n" \
+            "#SBATCH -e experiments/{}/logs/{}_errfile  # send stderr\n" + \
+            "export PYTHONPATH=~software/tensorflow-py3-amd64-gpu\n" + \
+            "srun python3 engine.py --run {} --config_to_run {} --tb_loc {}"
+
+        footer = \
+            "#!/bin/sh\n" + \
+            "#SBATCH -c 8     # cores requested\n" + \
+            "#SBATCH --mem=24000 #memory in Mb\n" + \
+            "#SBATCH -o experiments/{}/logs/{}_outfile  # send stdout\n" \
+            "#SBATCH -e experiments/{}/logs/{}_errfile  # send stderr\n" + \
+            "export PYTHONPATH=~software/tensorflow-py3-amd64-gpu\n" + \
+            "srun python3 engine.py --run {} --config_to_run {} --tb_loc {}"
+
+        return (header + middle + footer)
+
+    def write_to_file(parameters):
+        file = open("run_experiment.sbatch", "w")
+        file.write(self.gen_sbatch(parameters))
+        file.close()
+        pass
+
+    def run_sbatch():
+        self.write_to_file(parameters)
+        os.system("sbatch run_experiment.sbatch")
+        pass
+
+
+class Experiment(object):
+    """docstring for Experiment."""
+
+    def __init__(self, arg):
+        super(Experiment, self).__init__()
+        self.arg = arg
+
+
+    def est_folders(parameters):
+        """
+        est_folders takes X and establishes a folder structure given the parameters
+        of the function
+        """
+        pass
+
+
+if __name__ == '__main__':
+    pass
 
 # _____________________________________________________________________________
 # Description:

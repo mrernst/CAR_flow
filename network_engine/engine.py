@@ -59,6 +59,7 @@ import errno
 # custom libraries
 # -----
 # TODO: reorganize and cleanup all helper functions
+# TODO: Integrate class activation map helper into building blocks
 from utilities.class_activation_map import *
 from utilities.conv_visualization import put_kernels_on_grid, put_activations_on_grid, save_sprite_image
 from utilities.cm_to_tensorboard import cm_to_tfsummary
