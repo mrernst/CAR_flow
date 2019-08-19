@@ -205,7 +205,6 @@ def _osycb_parse_single(example_proto):
     return image_decoded_l, image_decoded_r, n_hot, one_hot
 
 
-
 def _osdigits_parse_single(example_proto):
     features = {
         "image/left/encoded": tf.FixedLenFeature([], tf.string),
