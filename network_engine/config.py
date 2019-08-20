@@ -67,9 +67,36 @@ def get_par():
 
     par = {}
 
-    par['newexperiment'] = True                  # create a new exp. folder
-    par['N_e'] = 1600                            # excitatory neurons
-    par['N_u'] = int(par.N_e/60)                 # neurons in each input pool
+    par['exp_name'] = ["noname_experiment"]
+    # TODO: par['name'] must be defined in the run_engine
+    # TODO: add documentation i.e. parameter possibilities
+    par['dataset'] = ["mnist"]
+
+    par['n_occluders'] = [2]
+    par['occlusion_percentage'] = [20]
+    par['label_type'] = ["onehot"]
+    par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BLT']
+    par['network_depth'] = [2]
+    par['time_depth'] = [3]
+    par['timedepth_beyond'] = [0]
+    par['feature_mult'] = [1]
+    par['keep_prob'] = [1.0]
+
+    par['stereo'] = [False, True]
+    par['downsampling'] = ['ds4']
+    par['color'] = ['grayscale']
+    par['cropped'] = [False]
+    par['augmented'] = [False]
+
+    par['write_every'] = [1]
+    par['test_every'] = [1]
+    par['buffer_size'] = [20000]
+    par['verbose'] = [True]
+    par['visualization'] = [True]
+
+    par['batchsize'] = [100]
+    par['epochs'] = [100]
+    par['learning_rate'] = [0.003]
 
     return par
 
@@ -86,12 +113,25 @@ def get_aux():
     """
 
     aux = {}
-    aux['datadirectory'] = "/home/mernst/Code/saturn/datasets/"
-    aux['experimentdirectory'] = "/home/mernst/Code/saturn/experiments/"
+    aux['wdir'] = ["/Users/markus/Research/Code/saturn/"]
+    aux['input_dir'] = ["/Users/markus/Research/Code/saturn/datasets/"]
+    aux['output_dir'] = ["/Users/markus/Research/Code/saturn/experiments/"]
+    # '/home/aecgroup/aecdata/Results_python/markus/'
+    aux['restore_ckpt'] = [True]
+    aux['evaluate_ckpt'] = [False]
+    aux['training_dir'] = [""]
+    aux['validation_dir'] = [""]
+    aux['test_dir'] = [""]
+    aux['evaluation_dir'] = [""]
 
-    aux['N_i'] = int(0.2 * par.N_e)              # inhibitory neurons
-    aux['N'] = par.N_e + aux.N_i               # total number of neurons
+    aux['decaying_lrate'] = [False]
+    aux['lr_eta'] = [0.1]
+    aux['lr_delta'] = [0.1]
+    aux['lr_d'] = [40.]
+    aux['l2_lambda'] = [0.]
+    aux['batchnorm'] = [True]
 
+    aux['iterations'] = [1]
     return aux
 
 
