@@ -147,17 +147,15 @@ def make_cmap(colors, position=None, bit=False):
 # TODO: Add support for plotting barplots and learningcurves and put barplot
 # into tf-summary
 
-# TODO: Refactor confusion_matrix plotting and saliency map plotting
-# into its own function
-
 # saliency maps or class activation mapping
 # -----
 
-def saliencymap_to_tfsummary(smap, pic, alpha=0.5):
+def saliencymap_to_figure(smap, pic, alpha=0.5):
     """
     saliencymap_to_tfsummary takes a saliency map smap, a picture pic and an
     optional value for alpha and returns a tf summary containing the picture
     overlayed with the saliency map with transparency alpha.
+    Add tfplot.figure.to_summary(fig, tag=tag) to plot to summary
     """
     number_of_maps_per_axis = int(np.floor(np.sqrt(smap.shape[0])))
     fig = mpl.figure.Figure(figsize=(
@@ -177,15 +175,15 @@ def saliencymap_to_tfsummary(smap, pic, alpha=0.5):
                   interpolation='nearest', vmin=0, vmax=1)
         ax.axis('off')
 
-    return tfplot.figure.to_summary(fig, tag="dev/saliency_map")
+    return fig
 
 
 # confusion matrix
 # -----
 
-def cm_to_tfsummary(confusion_matrix, labels, title='Confusion matrix',
-                    tensor_name='MyFigure/image', normalize=False,
-                    colormap='Oranges'):
+def cm_to_figure(confusion_matrix, labels, title='Confusion matrix',
+                 normalize=False,
+                 colormap='Oranges'):
     """
     Parameters:
         confusion_matrix                : Confusionmatrix Array
@@ -244,8 +242,7 @@ def cm_to_tfsummary(confusion_matrix, labels, title='Confusion matrix',
                 horizontalalignment="center", fontsize=6,
                 verticalalignment='center', color="black")
     fig.set_tight_layout(True)
-    summary = tfplot.figure.to_summary(fig, tag=tensor_name)
-    return summary
+    return fig
 
 
 # ---------------------
@@ -264,7 +261,7 @@ def normalize(x, inp_max=1, inp_min=-1):
     return normalized_digit
 
 
-class MidPointNorm(Normalize):
+class MidPointNorm(mpl.colors.Normalize):
     """
     MidPointNorm inherits from Normalize. It is a class useful for
     visualizations with a bidirectional color-scheme. It chooses

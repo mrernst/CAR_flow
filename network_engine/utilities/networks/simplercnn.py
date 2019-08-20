@@ -49,7 +49,7 @@ import numpy as np
 
 # custom functions
 # -----
-import buildingblocks as bb
+import utilities.networks.buildingblocks as bb
 
 
 class RCNN(bb.ComposedModule):
@@ -197,6 +197,20 @@ class RCNN(bb.ComposedModule):
         with tf.name_scope('input_output'):
             self.input_module = self.layers["inp_norm"]
             self.output_module = self.layers["fc0"]
+
+    def get_all_weights(self):
+        weights = []
+        for lyr in self.layers.keys():
+            if 'batchnorm' not in lyr:
+                if 'conv' in lyr:
+                    weights.append(self.layers[lyr].conv.weights)
+                elif 'fc' in lyr:
+                    weights.append(self.layers[lyr].input_module.weights)
+                elif ('lateral' in lyr):
+                    weights.append(self.layers[lyr].weights)
+                elif ('topdown' in lyr):
+                    weights.append(self.layers[lyr].weights)
+        return weights
 
 
 # _____________________________________________________________________________
