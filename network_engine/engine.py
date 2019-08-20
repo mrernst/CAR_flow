@@ -55,266 +55,45 @@ import os
 import re
 import errno
 
+from tensorflow.contrib.tensorboard.plugins import projector
+
+
+
+# TODO: Integrate class activation map helper into building blocks,
+#  i.e. CAM Module
+# TODO: read config with all parameters AND insert path to utilities folder
 
 # custom libraries
 # -----
-# TODO: reorganize and cleanup all helper functions
-# TODO: Integrate class activation map helper into building blocks
-from utilities.class_activation_map import *
-from utilities.conv_visualization import put_kernels_on_grid, put_activations_on_grid, save_sprite_image
-from utilities.cm_to_tensorboard import cm_to_tfsummary
-from utilities.custom_cmap import make_cmap
-from utilities.tfrecord_parser import _db1_parse_single, _db2_parse_single, _db2b_parse_single, _digits_parse_single, _sdigits_parse_single, _multimnist_parse_single, YCB_DB1_ENCODING, REDUCED_OBJECTSET
-from utilities.list_tfrecords import tfrecord_auto_traversal, all_percentages_tfrecord_paths
-import network_modules as networks
+
+import utilities.tfevent_handler
+import utilities.tfrecord_handler
+import utilities.visualizer
+import utilities.helper
 import utilities.networks.buildingblocks as bb
-
-
-from tensorflow.contrib.tensorboard.plugins import projector
+import utilities.networks.simplercnn as foundation
 
 
 # custom functions
 # -----
 
-sys.path.insert(0, '../../helper/')
-sys.path.insert(0, '/helper/')
-
 
 # commandline arguments
 # -----
 
-# common flags
+# FLAGS
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_boolean('classactivation', False,
-                            'use class activation mapping')
-# TODO make the flags on top do something
-tf.app.flags.DEFINE_string('output_dir', '/home/aecgroup/aecdata/Results_python/markus/',
-                           'output directory')
-tf.app.flags.DEFINE_string('exp_name', 'noname_experiment',
-                           'name of experiment')
-
-
-tf.app.flags.DEFINE_string('name', '',
-                           'name of the run')
-tf.app.flags.DEFINE_string('dataset', 'ycb_db1',
-                           'choose one of the following: ycb_db1, ycb_db2, ycb_db2b; \
-                           lightdebris, mediumdebris, heavydebris, \
-                           3digits, 4digits, 5digits,\
-                           2stereosquare, 3stereosquare, 4stereosquare, 5stereosquare, multimnist')
-tf.app.flags.DEFINE_boolean('restore_ckpt', True,
-                            'indicate whether you want to restore from checkpoint')
-tf.app.flags.DEFINE_boolean('evaluate_ckpt', False,
-                            'indicate whether you want to evaluate a restored checkpoint')
-tf.app.flags.DEFINE_integer('batchsize', 100,
-                            'batchsize to use, default 100')
-tf.app.flags.DEFINE_integer('epochs', 100,
-                            'learn for n epochs')
-tf.app.flags.DEFINE_integer('testevery', 1,
-                            'test every every n epochs')
-tf.app.flags.DEFINE_integer('timedepth_beyond', 0,
-                            'timedepth unrolled beyond trained timedepth, makes it possible evaluate  the network on timesteps further than the network was trained')
-tf.app.flags.DEFINE_integer('buffer_size', 20000,
-                            'number of image samples to be loaded into memory for shuffling')
-tf.app.flags.DEFINE_boolean('verbose', True,
-                            'generate verbose output')
-tf.app.flags.DEFINE_boolean('visualization', True,
-                            'generate visualizations')
-tf.app.flags.DEFINE_integer('writeevery', 1,
-                            'write every n timesteps to tfevent')
-
-# database specific
-tf.app.flags.DEFINE_string('input_type', 'monocular',
-                           'monocular or binocular data input')
-tf.app.flags.DEFINE_string('downsampling', 'ds4',
-                           'type of downsampling - fine, ds2, ds4')
-tf.app.flags.DEFINE_string('color', 'color',
-                           'train grayscale or from color images')
-tf.app.flags.DEFINE_boolean('cropped', False,
-                            'indicate whether the database image should be cropped to a center square')
-tf.app.flags.DEFINE_boolean('augmented', False,
-                            'indicate whether the database image should be preprocessed and cropped to a center square')
-
-# db1
-tf.app.flags.DEFINE_string('dataset_type', 'single',
-                           'sequence or single data')
-tf.app.flags.DEFINE_integer('ycb_object_distance', 50,
-                            'distance of focussed object (cm) from the lenses')
-
-# db2
-tf.app.flags.DEFINE_integer('n_occluders', 2,
-                            'number of occluding objects (only db2)')
-tf.app.flags.DEFINE_integer('occlusion_percentage', 20,
-                            'occlusion_percentage of the dataset')
-
-
-tf.app.flags.DEFINE_string('label_type', 'onehot',
-                           '(onehot, nhot) indicate whether you want to use onehot oder nhot encoding')
-
-# architecture specific
-tf.app.flags.DEFINE_string('architecture', 'BL',
-                           'architecture of the network, see Spoerer paper: B, BL, BT, BLT')
-tf.app.flags.DEFINE_integer('network_depth', 2,
-                            'depth of the deep network')
-tf.app.flags.DEFINE_integer('timedepth', 3,
-                            'timedepth of the recurrent architecture')
-tf.app.flags.DEFINE_integer('feature_mult', 1,
-                            'feature multiplier, layer 2 does have feature_mult * features[layer1]')
-tf.app.flags.DEFINE_float('keep_prob', 1.0,
-                          'dropout parameter for regularization, between 0 and 1.0, default 1 (off)')
-tf.app.flags.DEFINE_boolean('batchnorm', True,
-                            'indicate whether BatchNormalization should be used, default True')
-tf.app.flags.DEFINE_float('learning_rate', 0.003,
-                          'specify the learning rate')
-tf.app.flags.DEFINE_boolean('decaying_lrate', False,
-                            'indicate whether the learning rate should decay by epoch')
-tf.app.flags.DEFINE_float('lr_eta', 0.1,
-                          'eta parameter for decaying_lrate')
-tf.app.flags.DEFINE_float('lr_delta', 0.1,
-                          'delta parameter for decaying_lrate')
-tf.app.flags.DEFINE_float('lr_d', 40.,
-                          'd parameter for decaying_lrate')
-tf.app.flags.DEFINE_float('l2_lambda', 0,
-                          'lambda parameter for how discounted the regularization is')
-
-
-# custom directories
-
-tf.app.flags.DEFINE_string('training_dir', '',
-                           'custom directory for training-files')
-tf.app.flags.DEFINE_string('validation_dir', '',
-                           'custom directory for validation-files')
-tf.app.flags.DEFINE_string('test_dir', '',
-                           'custom directory for test-files')
-tf.app.flags.DEFINE_string('evaluation_dir', '',
-                           'custom directory for evaluation-files')
+tf.app.flags.DEFINE_string('config_file',
+                           '')
 
 FLAGS = tf.app.flags.FLAGS
 
 
-# helper functions (maybe outsource them at some point)
-# -----
-
-def print_tensor_info(tensor, name=None):
-    """Takes a tf.tensor and returns name and shape for debugging purposes"""
-    name = name if name else tensor.name
-    text = "[DEBUG] name = {}\tshape = {}"
-    print(text.format(name, tensor.shape.as_list()))
-
-
-def largest_indices(arr, n):
-    """Returns the n largest indices from a numpy array."""
-    flat_arr = arr.flatten()
-    indices = np.argpartition(flat_arr, -n)[-n:]
-    indices = indices[np.argsort(-flat_arr[indices])]
-    return np.unravel_index(indices, arr.shape)
-
-
-def plot_confusion_matrix(cm, colors=[(255, 255, 255), (0, 0, 0), (0, 0, 0), (0, 0, 0)]):
-    """uses matplotlib to plot a confusion matrix"""
-    fig, ax = plt.subplots(figsize=(14, 10), dpi=90)
-    # (51,143,196)
-    my_cmap = make_cmap(colors, bit=True, position=(0, 0.2, 0.8, 1))
-    cax = ax.matshow(cm, cmap=my_cmap)
-    fig.colorbar(cax)
-    ax.set_xticklabels(encoding, {'fontsize': 5}, rotation=90)
-    ax.set_xticks(np.arange(len(encoding)), minor=False)
-    ax.set_yticklabels(encoding, {'fontsize': 5})
-    ax.set_yticks(np.arange(len(encoding)), minor=False)
-    ax.set_title("confusion matrix: {}, {}, {}".format(
-        FLAGS.input_type, FLAGS.color, FLAGS.downsampling),  y=-0.08)
-    ax.set_xlabel("target")
-    ax.set_ylabel("network output")
-    plt.show()
-    plt.clf()
-    pass
-
-
-def print_misclassified_objects(cm, n_obj=5):
-    """prints out the n_obj misclassified objects"""
-    np.fill_diagonal(cm, 0)
-    maxind = largest_indices(cm, n_obj)
-    most_misclassified = encoding[maxind[0]]
-    classified_as = encoding[maxind[1]]
-    print('most misclassified:', most_misclassified)
-    print('classified as:', classified_as)
-    pass
-
-
-def variable_summaries(var, name, weights=False):
-    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
-    summaries = []
-    with tf.name_scope('summaries_{}'.format(name)):
-        mean = tf.reduce_mean(var)
-        summaries.append(tf.summary.scalar('mean', mean))
-        with tf.name_scope('stddev'):
-            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        summaries.append(tf.summary.scalar('stddev', stddev))
-        summaries.append(tf.summary.scalar('max', tf.reduce_max(var)))
-        summaries.append(tf.summary.scalar('min', tf.reduce_min(var)))
-        if weights:
-            #exitatory = tf.nn.relu(var)
-            #inhibitory = tf.nn.relu(tf.negative(var))
-            #summaries += variable_summaries(exitatory, name + '/exitatory')
-            #summaries += variable_summaries(inhibitory, name + '/inhibitory')
-            summaries.append(tf.summary.scalar('norm', tf.norm(var)))
-            #summaries.append(tf.summary.histogram('histogram', var))
-    return summaries
-
-
-def module_scalar_summary(module):
-    """module_scalar_summary takes a module as its argument and returns a list of summary
-    objects to be added to a list or merged"""
-    return [tf.summary.scalar(module.name + "_{}".format(timestep), module.outputs[timestep]
-                              ) for timestep in module.outputs]
-
-
-def module_variable_summary(module):
-    """module_variable_summary takes a module as its argument and returns a list of summary
-    objects to be added to a list or merged"""
-    return [variable_summaries(module.outputs[timestep],
-                               module.name + "_{}".format(timestep)) for timestep in module.outputs]
-
-
-def module_timedifference_summary(module, timedepth):
-    """module_timedifference_summary takes a module as its argument and returns a list of summary
-    objects to be added to a list or merged"""
-    if timedepth == 0:
-        ret = []
-    else:
-        ret = [variable_summaries(module.outputs[timestep + 1] - module.outputs[timestep],
-                                  module.name + '_{}minus{}'.format(timestep + 1, timestep)) for timestep in range(timedepth)]
-    return ret
-
-
-def get_all_weights(network):
-    weights = []
-    for lyr in network.layers.keys():
-        if 'batchnorm' not in lyr:
-            if 'conv' in lyr:
-                weights.append(network.layers[lyr].conv.weights)
-            elif 'fc' in lyr:
-                weights.append(network.layers[lyr].input_module.weights)
-            elif ('lateral' in lyr):
-                weights.append(network.layers[lyr].weights)
-            elif ('topdown' in lyr):
-                weights.append(network.layers[lyr].weights)
-    return weights
-
-
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
-
 # define correct network parameters
 # -----
 
-
+# TODO: integrate all of these into the configuration
 BATCH_SIZE = FLAGS.batchsize
 TIME_DEPTH = FLAGS.timedepth
 TIME_DEPTH_BEYOND = FLAGS.timedepth_beyond
@@ -352,9 +131,10 @@ else:
 
 if FLAGS.color == 'grayscale':
     IMAGE_CHANNELS = 1
-if FLAGS.input_type == 'binocular':
+STEREO_STRING = 'monocular'
+if FLAGS.stereo:
     IMAGE_CHANNELS = IMAGE_CHANNELS * 2
-
+    STEREO_STRING = 'binocular'
 
 INP_MIN = -1
 INP_MAX = 1
@@ -463,7 +243,7 @@ RESULT_DIRECTORY = '{}/{}/{}/'.format(FLAGS.output_dir,
 # architecture string
 ARCHITECTURE_STRING = ''
 ARCHITECTURE_STRING += '{}{}_{}layer_fm{}_d{}'.format(
-    FLAGS.architecture, FLAGS.timedepth, FLAGS.network_depth, FLAGS.feature_mult, FLAGS.keep_prob)
+    FLAGS.connectivity, FLAGS.timedepth, FLAGS.network_depth, FLAGS.feature_mult, FLAGS.keep_prob)
 if FLAGS.batchnorm:
     ARCHITECTURE_STRING += '_bn1'
 else:
@@ -491,13 +271,11 @@ else:
 
 # format string
 FORMAT_STRING = ''
-FORMAT_STRING += '{}x{}'.format(IMAGE_HEIGHT, IMAGE_WIDTH)
+FORMAT_STRING += '{}x{}x{}'.format(IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS)
 if ('ycb' in FLAGS.dataset) and FLAGS.dataset != 'ycb_db2b':
-    FORMAT_STRING += "_{}_{}_{}".format(FLAGS.input_type,
-                                        FLAGS.color, FLAGS.label_type)
+    FORMAT_STRING += "_{}_{}".format(FLAGS.color, FLAGS.label_type)
 else:
-    FORMAT_STRING += "_{}_grayscale_{}".format(
-        FLAGS.input_type, FLAGS.label_type)
+    FORMAT_STRING += "_grayscale_{}".format(FLAGS.label_type)
 RESULT_DIRECTORY += "{}/{}/{}/".format(ARCHITECTURE_STRING,
                                        DATA_STRING, FORMAT_STRING)
 
@@ -581,7 +359,7 @@ if FLAGS.color == 'grayscale':
     inp_left = tf.image.rgb_to_grayscale(inp_left)
     inp_right = tf.image.rgb_to_grayscale(inp_right)
 
-if FLAGS.input_type == 'monocular':
+if not FLAGS.stereo:
     inp_unknown = inp_left
 else:
     inp_unknown = tf.concat([inp_left, inp_right], axis=3)
@@ -620,7 +398,7 @@ if FLAGS.l2_lambda != 0:
     lossL2 = bb.ConstantVariableModule("lossL2", (), dtype=tf.float32)
     lossL2.variable = lossL2.variable.assign(tf.add_n([tf.nn.l2_loss(
         v) for v in tf.trainable_variables()]) * FLAGS.l2_lambda / (TIME_DEPTH + 1))
-    #lossL2.variable = lossL2.variable.assign(tf.add_n([ tf.nn.l2_loss(v) for v in get_all_weights(network)]) * FLAGS.l2_lambda)
+    #lossL2.variable = lossL2.variable.assign(tf.add_n([ tf.nn.l2_loss(v) for v in network.get_all_weights]) * FLAGS.l2_lambda)
     error.add_input(lossL2, 0)
 
 error.create_output(TIME_DEPTH + TIME_DEPTH_BEYOND)
@@ -898,7 +676,7 @@ with tf.name_scope('weights_and_biases'):
     #TRAIN_SUMMARIES += variable_summaries(network.layers["pool1"].outputs[TIME_DEPTH], 'pool1_output_{}'.format(TIME_DEPTH))
     TRAIN_SUMMARIES += variable_summaries(
         network.layers["fc0"].input_module.weights, 'fc0_weights_{}'.format(TIME_DEPTH), weights=True)
-    if "L" in FLAGS.architecture:
+    if "L" in FLAGS.connectivity:
         TRAIN_SUMMARIES += variable_summaries(
             network.layers["lateral0"].weights, 'lateral0_weights_{}'.format(TIME_DEPTH), weights=True)
         TRAIN_SUMMARIES += variable_summaries(
@@ -907,7 +685,7 @@ with tf.name_scope('weights_and_biases'):
             'lateral0_weights_{}'.format(TIME_DEPTH), network.layers["lateral0"].weights))
         ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
             'lateral1_weights_{}'.format(TIME_DEPTH), network.layers["lateral1"].weights))
-    if "T" in FLAGS.architecture:
+    if "T" in FLAGS.connectivity:
         TRAIN_SUMMARIES += variable_summaries(
             network.layers["topdown0"].weights, 'topdown0_weights_{}'.format(TIME_DEPTH), weights=True)
         ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
@@ -965,18 +743,18 @@ with tf.name_scope('images'):
     for lnr in range(FLAGS.network_depth - 1):
         IMAGE_SUMMARIES.append(tf.summary.image('conv{}/kernels'.format(lnr + 1), put_kernels_on_grid('conv{}/kernels'.format(lnr + 1), tf.reshape(
             network.layers["conv{}".format(lnr + 1)].conv.weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
-    if "T" in FLAGS.architecture:
+    if "T" in FLAGS.connectivity:
         for lnr in range(FLAGS.network_depth - 1):
             IMAGE_SUMMARIES.append(tf.summary.image('topdown{}/kernels'.format(lnr), put_kernels_on_grid('topdown{}/kernels'.format(lnr), tf.reshape(
                 network.layers["topdown{}".format(lnr)].weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
-    if "L" in FLAGS.architecture:
+    if "L" in FLAGS.connectivity:
         for lnr in range(FLAGS.network_depth):
             IMAGE_SUMMARIES.append(tf.summary.image('lateral{}/kernels'.format(lnr), put_kernels_on_grid('lateral{}/kernels'.format(lnr), tf.reshape(
                 network.layers["lateral{}".format(lnr)].weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
 
     # this is more interesting, write down on case by case basis, cases: 1,2,3,6 Channels
     # 1 or 3 channels:
-    if FLAGS.input_type == 'monocular':
+    if not FLAGS.stereo:
         IMAGE_SUMMARIES.append(tf.summary.image('conv0/kernels', put_kernels_on_grid(
             'conv0/kernels', network.layers["conv0"].conv.weights), max_outputs=1))
     else:
@@ -1034,14 +812,16 @@ with tf.Session() as sess:
                 image_writer.add_summary(images, train_it)
 
                 # pass additional confusion matrix to image_writer
-                cm_summary = cm_to_tfsummary(
-                    total_confusion_matrix.eval(), encoding, tensor_name='dev/cm')
-                image_writer.add_summary(cm_summary, train_it)
+                cm_figure = cm_to_figure(
+                    total_confusion_matrix.eval(), encoding)
+                image_writer.add_summary(tfplot.figure.to_summary(cm_figure,
+                                         tag="dev/confusionmatrix"), train_it)
 
             # pass additional class activation maps of the last batch to image_writer
             if FLAGS.classactivation:
-                cam_summary = cam_to_tfsummary(cam, pic)
-                image_writer.add_summary(cam_summary, train_it)
+                cam_figure = cam_to_figure(cam, pic)
+                image_writer.add_summary(tfplot.figure.to_summary(
+                    cam_figure, tag="dev/saliencymap"), train_it)
 
         FLAGS.restore_ckpt = False
         return 0
@@ -1179,7 +959,7 @@ with tf.Session() as sess:
 
             # visualize with tsne
             if True:
-                saver.save(sess, RESULT_DIRECTORY + 'checkpoints/' + 'evaluation/' + FLAGS.name + FLAGS.architecture
+                saver.save(sess, RESULT_DIRECTORY + 'checkpoints/' + 'evaluation/' + FLAGS.name + FLAGS.connectivity
                            + FLAGS.dataset, global_step=global_step.eval())
 
                 npnames = encoding
@@ -1228,7 +1008,7 @@ with tf.Session() as sess:
     for i_train_epoch in range(N_TRAIN_EPOCH):
         if i_train_epoch % FLAGS.testevery == 0:
             _ = testing(train_it)
-            saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + FLAGS.input_type
+            saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + STEREO_STRING
                        + FLAGS.dataset_type, global_step=train_it)
         train_it = training(train_it)
 
@@ -1236,7 +1016,7 @@ with tf.Session() as sess:
     # -----
 
     testing(train_it, flnames=test_filenames, tag='Testing')
-    saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + FLAGS.input_type
+    saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + STEREO_STRING
                + FLAGS.dataset_type, global_step=train_it)
 
     train_writer.close()
