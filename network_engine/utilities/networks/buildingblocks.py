@@ -830,8 +830,8 @@ class PlaceholderModule(OperationModule):
         super().__init__(name, shape, dtype)
         self.shape = shape
         self.dtype = dtype
-        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
-                                          name=self.name)
+        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+                                                    name=self.name)
 
     def operation(self):
         return self.placeholder
@@ -1788,8 +1788,8 @@ class InputCanvasModule(OperationModule):
         self.shape = shape
         self.dtype = dtype
         self.trainable_input = trainable_input
-        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
-                                          name=self.name)
+        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+                                                    name=self.name)
         self.canvas = tf.Variable(tf.truncated_normal(shape=self.shape,
                                   stddev=0.1), name=name)
         # self.canvas = tf.Variable(tf.zeros(shape=self.shape), name=name)
@@ -1819,8 +1819,8 @@ class InputSwitchModule(OperationModule):
         self.shape = shape
         self.dtype = dtype
         self.alt_input = alt_input
-        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
-                                          name=self.name)
+        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+                                                    name=self.name)
 
     def operation(self, x):
         def return_placeholder():
