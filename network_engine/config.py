@@ -116,6 +116,7 @@ def get_aux():
     aux['wdir'] = ["/Users/markus/Research/Code/saturn/"]
     aux['input_dir'] = ["/Users/markus/Research/Code/saturn/datasets/"]
     aux['output_dir'] = ["/Users/markus/Research/Code/saturn/experiments/"]
+    aux['network_module'] = ["utilities.networks.simplercnn"]
     # '/home/aecgroup/aecdata/Results_python/markus/'
     aux['restore_ckpt'] = [True]
     aux['evaluate_ckpt'] = [False]
