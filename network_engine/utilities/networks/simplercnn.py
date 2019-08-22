@@ -52,7 +52,7 @@ import numpy as np
 import utilities.networks.buildingblocks as bb
 
 
-class RCNN(bb.ComposedModule):
+class RNN(bb.ComposedModule):
     def define_inner_modules(self, name, is_training, activations,
                              conv_filter_shapes, bias_shapes, ksizes,
                              pool_strides, topdown_filter_shapes,
