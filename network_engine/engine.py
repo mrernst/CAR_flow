@@ -130,7 +130,7 @@ DTYPE = tf.float32
 # define network io modules
 # -----
 
-foundation = importlib.import_module(CONFIG['network_module'])
+circuit = importlib.import_module(CONFIG['network_module'])
 
 
 inp = bb.NontrainableVariableModule("input", (CONFIG['batchsize'],
