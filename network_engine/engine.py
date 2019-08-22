@@ -54,29 +54,49 @@ import sys
 import os
 import re
 import errno
+import importlib
 
 from tensorflow.contrib.tensorboard.plugins import projector
 
-
-
 # TODO: Integrate class activation map helper into building blocks,
 #  i.e. CAM Module
-# TODO: read config with all parameters AND insert path to utilities folder
 
 # custom libraries
 # -----
 
-import utilities.tfevent_handler
-import utilities.tfrecord_handler
-import utilities.visualizer
-import utilities.helper
+import utilities.tfevent_handler as tfevent_handler
+import utilities.tfrecord_handler as tfrecord_handler
+import utilities.visualizer as visualizer
+import utilities.helper as helper
+
 import utilities.networks.buildingblocks as bb
-import utilities.networks.simplercnn as foundation
+import utilities.networks.preprocessor as preprocessor
 
 
-# custom functions
+# commandline arguments
 # -----
+class LearningRate(object):
+    """docstring for LearningRate."""
 
+    def __init__(self, lrate, eta, delta, d, global_epoch_variable):
+        super(LearningRate, self).__init__()
+        self.rate = tf.Variable(CONFIG['learning_rate'], trainable=False,
+                                name='learning_rate')
+        self.eta = tf.Variable(CONFIG['lr_eta'], trainable=False,
+                               name='learning_rate_eta')
+        self.delta = tf.Variable(CONFIG['lr_delta'], trainable=False,
+                                 name='learning_rate_delta')
+        self.d = tf.Variable(CONFIG['lr_d'], trainable=False,
+                             name='learning_rate_d')
+
+        self.divide_by_10 = tf.assign(self.rate, self.rate / 10,
+                                      name='divide_by_10')
+
+        # TODO initial learning rate should be specified in the setup
+        self.decay_by_epoch = tf.assign(self.rate, self.eta * self.delta **
+                                        (tf.cast(global_epoch_variable,
+                                         tf.float32) /
+                                            self.d), name='decay_by_epoch')
 
 # commandline arguments
 # -----
@@ -84,120 +104,72 @@ import utilities.networks.simplercnn as foundation
 # FLAGS
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file',
-                           '')
+tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' +
+                           'saturn/experiments/001_noname_experiment/' +
+                           'files/config_files/config0.csv',
+                           'path to the configuration file of the experiment')
 
 FLAGS = tf.app.flags.FLAGS
+CONFIG = helper.infer_additional_parameters(
+    helper.read_config_file(FLAGS.config_file)
+    )
 
 
-# define correct network parameters
+
+# constants
 # -----
-
-# TODO: integrate all of these into the configuration
-BATCH_SIZE = FLAGS.batchsize
-TIME_DEPTH = FLAGS.timedepth
-TIME_DEPTH_BEYOND = FLAGS.timedepth_beyond
-N_TRAIN_EPOCH = FLAGS.epochs
-
-if ('ycb' in FLAGS.dataset):
-    IMAGE_HEIGHT = 240
-    IMAGE_WIDTH = 320
-    CLASSES = 80
-    IMAGE_CHANNELS = 3
-    encoding = YCB_DB1_ENCODING
-    if FLAGS.downsampling == 'ds2':
-        IMAGE_HEIGHT = IMAGE_HEIGHT // 2
-        IMAGE_WIDTH = IMAGE_WIDTH // 2
-    elif FLAGS.downsampling == 'ds4':
-        IMAGE_HEIGHT = IMAGE_HEIGHT // 4
-        IMAGE_WIDTH = IMAGE_WIDTH // 4
-    if ('db2b' in FLAGS.dataset):
-        CLASSES = 10
-        IMAGE_CHANNELS = 1
-        encoding = REDUCED_OBJECTSET
-elif (('stereo' in FLAGS.dataset) and not('square' in FLAGS.dataset)):
-    IMAGE_HEIGHT = 60
-    IMAGE_WIDTH = 80
-    CLASSES = 10
-    IMAGE_CHANNELS = 1
-    encoding = np.array(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-else:
-    IMAGE_HEIGHT = 32
-    IMAGE_WIDTH = 32
-    CLASSES = 10
-    IMAGE_CHANNELS = 1
-    encoding = np.array(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-
-
-if FLAGS.color == 'grayscale':
-    IMAGE_CHANNELS = 1
-STEREO_STRING = 'monocular'
-if FLAGS.stereo:
-    IMAGE_CHANNELS = IMAGE_CHANNELS * 2
-    STEREO_STRING = 'binocular'
 
 INP_MIN = -1
 INP_MAX = 1
 DTYPE = tf.float32
 
-TEST_SUMMARIES = []
-TRAIN_SUMMARIES = []
-ADDITIONAL_SUMMARIES = []
-IMAGE_SUMMARIES = []
+# TODO fill this into the infer_additional_parameters
+# use sigmoid for n-hot task, otherwise softmax
 
-inp = bb.ConstantVariableModule("input", (BATCH_SIZE, IMAGE_HEIGHT,
-                                         IMAGE_WIDTH, IMAGE_CHANNELS), dtype='uint8')
-labels = bb.ConstantVariableModule("input_labels", (BATCH_SIZE,
-                                                   CLASSES), dtype=DTYPE)
-keep_prob = bb.ConstantPlaceholderModule("keep_prob", shape=(), dtype=DTYPE)
-is_training = bb.ConstantPlaceholderModule(
+
+# define network io modules
+# -----
+
+foundation = importlib.import_module(CONFIG['network_module'])
+
+
+inp = bb.NontrainableVariableModule("input", (CONFIG['batchsize'],
+                                    CONFIG['image_height'],
+                                    CONFIG['image_width'],
+                                    CONFIG['image_channels']), dtype='uint8')
+labels = bb.NontrainableVariableModule("input_labels", (CONFIG['batchsize'],
+                                       CONFIG['classes']), dtype=DTYPE)
+
+keep_prob = bb.PlaceholderModule(
+    "keep_prob", shape=(), dtype=DTYPE)
+is_training = bb.PlaceholderModule(
     "is_training", shape=(), dtype=tf.bool)
 
-# global_step parameters for restarting and to continue training
+
 global_step = tf.Variable(0, trainable=False, name='global_step')
 increment_global_step = tf.assign_add(
     global_step, 1, name='increment_global_step')
+
 global_epoch = tf.Variable(0, trainable=False, name='global_epoch')
 increment_global_epoch = tf.assign_add(
     global_epoch, 1, name='increment_global_epoch')
 
-# decaying learning rate
-LR_ETA = tf.Variable(FLAGS.lr_eta, trainable=False, name='learning_rate_eta')
-LR_DELTA = tf.Variable(FLAGS.lr_delta, trainable=False,
-                       name='learning_rate_delta')
-LR_D = tf.Variable(FLAGS.lr_d, trainable=False, name='learning_rate_d')
-lrate = tf.Variable(FLAGS.learning_rate, trainable=False, name='learning_rate')
-if FLAGS.decaying_lrate:
-    lrate = tf.Variable(LR_ETA * LR_DELTA**(tf.cast(global_epoch,
-                                                    tf.float32) / LR_D), trainable=False, name='learning_rate')
-update_lrate = tf.assign(lrate, LR_ETA * LR_DELTA **
-                         (tf.cast(global_epoch, tf.float32) / LR_D), name='update_lrate')
+lrate = LearningRate(CONFIG['learning_rate'], CONFIG['lr_eta'],
+                     CONFIG['lr_delta'], CONFIG['lr_d'], global_epoch)
 
 
-# crop input if desired
-if FLAGS.cropped:
-    IMAGE_HEIGHT = IMAGE_WIDTH // 10 * 4
-    IMAGE_WIDTH = IMAGE_WIDTH // 10 * 4
-    inp_prep = bb.CropModule("input_cropped", IMAGE_HEIGHT, IMAGE_WIDTH)
-    inp_prep.add_input(inp)
-# augment data if desired
-elif FLAGS.augmented:
-    inp_prep = bb.AugmentModule(
-        "input_prep", is_training.placeholder, IMAGE_WIDTH)
-    IMAGE_HEIGHT = IMAGE_WIDTH // 10 * 4
-    IMAGE_WIDTH = IMAGE_WIDTH // 10 * 4
-    inp_prep.add_input(inp)
-else:
-    inp_prep = inp
+# TODO:
+# cropping augmenting and normalization should be part of a preprocessing
+# network, because that is basically what we are doing here.
+# solve it more elegantly, by passing the relevant config params to a bb class
+# also include the calculation of image statistics in that submodule
 
-
-# use sigmoid for n-hot task, otherwise softmax
-if FLAGS.label_type == 'nhot':
-    #CROSSENTROPY_FN = networks.softmax_cross_entropy
-    CROSSENTROPY_FN = networks.sigmoid_cross_entropy
-else:
-    CROSSENTROPY_FN = networks.softmax_cross_entropy
-    #CROSSENTROPY_FN = networks.sigmoid_cross_entropy
+inp_prep = preprocessor.PreprocessorNetwork(CONFIG['cropped'],
+                                            CONFIG['augmented'],
+                                            CONFIG['norm_by_stat'],
+                                            INP_MAX,
+                                            INP_MIN)
+inp_prep.add_input(inp)
 
 
 # handle input/output directies
@@ -377,7 +349,7 @@ inp.variable = inp.variable.assign(inp_unknown)
 
 network = networks.MeNet2_constructor("MeNet", is_training.placeholder, keep_prob.placeholder,
                                       FLAGS, IMAGE_CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH, CLASSES, net_params=None)
-one_time_error = bb.ErrorModule("cross_entropy", CROSSENTROPY_FN)
+one_time_error = bb.ErrorModule("cross_entropy", CONFIG['crossentropy_fn'])
 error = bb.TimeAddModule("add_error")
 optimizer = bb.OptimizerModule("adam", tf.train.AdamOptimizer(lrate))
 #optimizer = bb.OptimizerModule("momentum", tf.train.MomentumOptimizer(lrate, 0.9))
@@ -395,7 +367,7 @@ accuracy.add_input(labels)
 
 # L2 regularization
 if FLAGS.l2_lambda != 0:
-    lossL2 = bb.ConstantVariableModule("lossL2", (), dtype=tf.float32)
+    lossL2 = bb.NontrainableVariableModule("lossL2", (), dtype=tf.float32)
     lossL2.variable = lossL2.variable.assign(tf.add_n([tf.nn.l2_loss(
         v) for v in tf.trainable_variables()]) * FLAGS.l2_lambda / (TIME_DEPTH + 1))
     #lossL2.variable = lossL2.variable.assign(tf.add_n([ tf.nn.l2_loss(v) for v in network.get_all_weights]) * FLAGS.l2_lambda)
@@ -637,132 +609,137 @@ else:
 # decide which parameters get written to tfevents
 # -----
 
+test_summaries = []
+train_summaries = []
+additional_summaries = []
+image_summaries = []
+
 with tf.name_scope('mean_test_time'):
-    TEST_SUMMARIES.append(tf.summary.scalar(
+    test_summaries.append(tf.summary.scalar(
         'testtime_avg_cross_entropy', average_cross_entropy[TIME_DEPTH]))
-    TEST_SUMMARIES.append(tf.summary.scalar(
+    test_summaries.append(tf.summary.scalar(
         'testtime_avg_accuracy', average_accuracy[TIME_DEPTH]))
     if FLAGS.label_type == 'nhot':
-        TEST_SUMMARIES.append(tf.summary.scalar(
+        test_summaries.append(tf.summary.scalar(
             'testtime_avg_accuracy_labels', average_accuracy_labels[TIME_DEPTH]))
     elif FLAGS.classactivation:
-        TEST_SUMMARIES.append(tf.summary.scalar(
+        test_summaries.append(tf.summary.scalar(
             'testtime_avg_segmentation_accuracy', average_segmentation_accuracy[TIME_DEPTH]))
 
 with tf.name_scope('mean_test_time_beyond'):
     for time in accuracy.outputs:
-        TEST_SUMMARIES.append(tf.summary.scalar(
+        test_summaries.append(tf.summary.scalar(
             'testtime_avg_cross_entropy' + "_{}".format(time), average_cross_entropy[time]))
-        TEST_SUMMARIES.append(tf.summary.scalar(
+        test_summaries.append(tf.summary.scalar(
             'testtime_avg_accuracy' + "_{}".format(time), average_accuracy[time]))
         if FLAGS.label_type == 'nhot':
-            TEST_SUMMARIES.append(tf.summary.scalar(
+            test_summaries.append(tf.summary.scalar(
                 'testtime_avg_accuracy_labels' + "_{}".format(time), average_accuracy_labels[time]))
 
 
 with tf.name_scope('weights_and_biases'):
     if not FLAGS.batchnorm:
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["conv0"].bias.outputs[TIME_DEPTH], 'conv0_bias_{}'.format(TIME_DEPTH))
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["conv1"].bias.outputs[TIME_DEPTH], 'conv1_bias_{}'.format(TIME_DEPTH))
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["fc0"].bias.outputs[TIME_DEPTH], 'fc0_bias_{}'.format(TIME_DEPTH))
-    TRAIN_SUMMARIES += variable_summaries(
+    train_summaries += variable_summaries(
         network.layers["conv0"].conv.weights, 'conv0_kernel_{}'.format(TIME_DEPTH), weights=True)
-    #TRAIN_SUMMARIES += variable_summaries(network.layers["pool0"].outputs[TIME_DEPTH], 'pool0_output_{}'.format(TIME_DEPTH))
-    TRAIN_SUMMARIES += variable_summaries(
+    #train_summaries += variable_summaries(network.layers["pool0"].outputs[TIME_DEPTH], 'pool0_output_{}'.format(TIME_DEPTH))
+    train_summaries += variable_summaries(
         network.layers["conv1"].conv.weights, 'conv1_kernel_{}'.format(TIME_DEPTH), weights=True)
-    #TRAIN_SUMMARIES += variable_summaries(network.layers["pool1"].outputs[TIME_DEPTH], 'pool1_output_{}'.format(TIME_DEPTH))
-    TRAIN_SUMMARIES += variable_summaries(
+    #train_summaries += variable_summaries(network.layers["pool1"].outputs[TIME_DEPTH], 'pool1_output_{}'.format(TIME_DEPTH))
+    train_summaries += variable_summaries(
         network.layers["fc0"].input_module.weights, 'fc0_weights_{}'.format(TIME_DEPTH), weights=True)
     if "L" in FLAGS.connectivity:
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["lateral0"].weights, 'lateral0_weights_{}'.format(TIME_DEPTH), weights=True)
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["lateral1"].weights, 'lateral1_weights_{}'.format(TIME_DEPTH), weights=True)
-        ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
+        additional_summaries.append(tf.summary.histogram(
             'lateral0_weights_{}'.format(TIME_DEPTH), network.layers["lateral0"].weights))
-        ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
+        additional_summaries.append(tf.summary.histogram(
             'lateral1_weights_{}'.format(TIME_DEPTH), network.layers["lateral1"].weights))
     if "T" in FLAGS.connectivity:
-        TRAIN_SUMMARIES += variable_summaries(
+        train_summaries += variable_summaries(
             network.layers["topdown0"].weights, 'topdown0_weights_{}'.format(TIME_DEPTH), weights=True)
-        ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
+        additional_summaries.append(tf.summary.histogram(
             'topdown0_weights_{}'.format(TIME_DEPTH), network.layers["topdown0"].weights))
-    ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
+    additional_summaries.append(tf.summary.histogram(
         'conv0_weights_{}'.format(TIME_DEPTH), network.layers["conv0"].conv.weights))
-    ADDITIONAL_SUMMARIES.append(tf.summary.histogram(
+    additional_summaries.append(tf.summary.histogram(
         'conv1_weights_{}'.format(TIME_DEPTH), network.layers["conv1"].conv.weights))
-    #ADDITIONAL_SUMMARIES.append(tf.summary.histogram('conv0_pre_activations_{}'.format(TIME_DEPTH), network.layers["conv0"].preactivation.outputs[TIME_DEPTH]))
-    #ADDITIONAL_SUMMARIES.append(tf.summary.histogram('conv0_activations_{}'.format(TIME_DEPTH), network.layers["conv0"].outputs[TIME_DEPTH]))
-    #ADDITIONAL_SUMMARIES.append(tf.summary.histogram('conv1_pre_activations_{}'.format(TIME_DEPTH), network.layers["conv1"].preactivation.outputs[TIME_DEPTH]))
-    #ADDITIONAL_SUMMARIES.append(tf.summary.histogram('conv1_activations_{}'.format(TIME_DEPTH), network.layers["conv1"].outputs[TIME_DEPTH]))
-    #ADDITIONAL_SUMMARIES.append(tf.summary.histogram('fc0_pre_activations_{}'.format(TIME_DEPTH), network.layers["fc0"].preactivation.outputs[TIME_DEPTH]))
-    ADDITIONAL_SUMMARIES.append(tf.summary.histogram('fc0_weights{}'.format(
+    #additional_summaries.append(tf.summary.histogram('conv0_pre_activations_{}'.format(TIME_DEPTH), network.layers["conv0"].preactivation.outputs[TIME_DEPTH]))
+    #additional_summaries.append(tf.summary.histogram('conv0_activations_{}'.format(TIME_DEPTH), network.layers["conv0"].outputs[TIME_DEPTH]))
+    #additional_summaries.append(tf.summary.histogram('conv1_pre_activations_{}'.format(TIME_DEPTH), network.layers["conv1"].preactivation.outputs[TIME_DEPTH]))
+    #additional_summaries.append(tf.summary.histogram('conv1_activations_{}'.format(TIME_DEPTH), network.layers["conv1"].outputs[TIME_DEPTH]))
+    #additional_summaries.append(tf.summary.histogram('fc0_pre_activations_{}'.format(TIME_DEPTH), network.layers["fc0"].preactivation.outputs[TIME_DEPTH]))
+    additional_summaries.append(tf.summary.histogram('fc0_weights{}'.format(
         TIME_DEPTH), network.layers["fc0"].input_module.weights[TIME_DEPTH]))
 
 # comment this out to save space in the records and calculation time
 # with tf.name_scope('activations'):
-#   TRAIN_SUMMARIES += module_variable_summary(network.layers["conv0"].preactivation)
-#   TRAIN_SUMMARIES += module_variable_summary(network.layers["conv0"])
-#   TRAIN_SUMMARIES += module_variable_summary(network.layers["conv0"].preactivation)
-#   TRAIN_SUMMARIES += module_variable_summary(network.layers["conv0"])
-#   TRAIN_SUMMARIES += module_variable_summary(network.layers["fc0"])
+#   train_summaries += module_variable_summary(network.layers["conv0"].preactivation)
+#   train_summaries += module_variable_summary(network.layers["conv0"])
+#   train_summaries += module_variable_summary(network.layers["conv0"].preactivation)
+#   train_summaries += module_variable_summary(network.layers["conv0"])
+#   train_summaries += module_variable_summary(network.layers["fc0"])
 
 
 # with tf.name_scope('time_differences'):
-    #TRAIN_SUMMARIES += module_timedifference_summary(error, TIME_DEPTH + TIME_DEPTH_BEYOND)
-    #TRAIN_SUMMARIES += module_timedifference_summary(accuracy, TIME_DEPTH + TIME_DEPTH_BEYOND)
-    #TRAIN_SUMMARIES += module_timedifference_summary(network.layers["fc0"], TIME_DEPTH)
-    #TRAIN_SUMMARIES += module_timedifference_summary(network.layers["conv0"], TIME_DEPTH)
-    #TRAIN_SUMMARIES += module_timedifference_summary(network.layers["conv1"], TIME_DEPTH)
+    #train_summaries += module_timedifference_summary(error, TIME_DEPTH + TIME_DEPTH_BEYOND)
+    #train_summaries += module_timedifference_summary(accuracy, TIME_DEPTH + TIME_DEPTH_BEYOND)
+    #train_summaries += module_timedifference_summary(network.layers["fc0"], TIME_DEPTH)
+    #train_summaries += module_timedifference_summary(network.layers["conv0"], TIME_DEPTH)
+    #train_summaries += module_timedifference_summary(network.layers["conv1"], TIME_DEPTH)
 
 
 # comment this out to save space in the records and calculation time
 # with tf.name_scope('accuracy_and_error_beyond'):
-#  TRAIN_SUMMARIES += module_scalar_summary(error)
-#  TRAIN_SUMMARIES += module_scalar_summary(accuracy)
+#  train_summaries += module_scalar_summary(error)
+#  train_summaries += module_scalar_summary(accuracy)
 #  if FLAGS.label_type == 'nhot':
-#    TRAIN_SUMMARIES += module_scalar_summary(accuracy_labels)
+#    train_summaries += module_scalar_summary(accuracy_labels)
 
 with tf.name_scope('accuracy_and_error'):
-    TRAIN_SUMMARIES.append(tf.summary.scalar(
+    train_summaries.append(tf.summary.scalar(
         error.name + "_{}".format(TIME_DEPTH), error.outputs[TIME_DEPTH]))
-    TRAIN_SUMMARIES.append(tf.summary.scalar(
+    train_summaries.append(tf.summary.scalar(
         accuracy.name + "_{}".format(TIME_DEPTH), accuracy.outputs[TIME_DEPTH]))
     if FLAGS.label_type == 'nhot':
-        TRAIN_SUMMARIES.append(tf.summary.scalar(
+        train_summaries.append(tf.summary.scalar(
             accuracy_labels.name + "_{}".format(TIME_DEPTH), accuracy_labels.outputs[TIME_DEPTH]))
     elif FLAGS.classactivation:
-        TRAIN_SUMMARIES.append(tf.summary.scalar(
+        train_summaries.append(tf.summary.scalar(
             "segmentation_accuracy" + "_{}".format(TIME_DEPTH), segmentation_accuracy))
 
 
 with tf.name_scope('images'):
     for lnr in range(FLAGS.network_depth - 1):
-        IMAGE_SUMMARIES.append(tf.summary.image('conv{}/kernels'.format(lnr + 1), put_kernels_on_grid('conv{}/kernels'.format(lnr + 1), tf.reshape(
+        image_summaries.append(tf.summary.image('conv{}/kernels'.format(lnr + 1), put_kernels_on_grid('conv{}/kernels'.format(lnr + 1), tf.reshape(
             network.layers["conv{}".format(lnr + 1)].conv.weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
     if "T" in FLAGS.connectivity:
         for lnr in range(FLAGS.network_depth - 1):
-            IMAGE_SUMMARIES.append(tf.summary.image('topdown{}/kernels'.format(lnr), put_kernels_on_grid('topdown{}/kernels'.format(lnr), tf.reshape(
+            image_summaries.append(tf.summary.image('topdown{}/kernels'.format(lnr), put_kernels_on_grid('topdown{}/kernels'.format(lnr), tf.reshape(
                 network.layers["topdown{}".format(lnr)].weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
     if "L" in FLAGS.connectivity:
         for lnr in range(FLAGS.network_depth):
-            IMAGE_SUMMARIES.append(tf.summary.image('lateral{}/kernels'.format(lnr), put_kernels_on_grid('lateral{}/kernels'.format(lnr), tf.reshape(
+            image_summaries.append(tf.summary.image('lateral{}/kernels'.format(lnr), put_kernels_on_grid('lateral{}/kernels'.format(lnr), tf.reshape(
                 network.layers["lateral{}".format(lnr)].weights, [network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], 1, -1])), max_outputs=1))
 
     # this is more interesting, write down on case by case basis, cases: 1,2,3,6 Channels
     # 1 or 3 channels:
     if not FLAGS.stereo:
-        IMAGE_SUMMARIES.append(tf.summary.image('conv0/kernels', put_kernels_on_grid(
+        image_summaries.append(tf.summary.image('conv0/kernels', put_kernels_on_grid(
             'conv0/kernels', network.layers["conv0"].conv.weights), max_outputs=1))
     else:
-        IMAGE_SUMMARIES.append(tf.summary.image('conv0/kernels', put_kernels_on_grid('conv0/kernels', tf.reshape(network.layers["conv0"].conv.weights, [
+        image_summaries.append(tf.summary.image('conv0/kernels', put_kernels_on_grid('conv0/kernels', tf.reshape(network.layers["conv0"].conv.weights, [
                                network.net_params['receptive_pixels'], 2 * network.net_params['receptive_pixels'], -1, network.net_params['n_features']])), max_outputs=1))
 
-    #IMAGE_SUMMARIES.append(tf.summary.image('conv0/activations', put_activations_on_grid('conv0/activations', network.layers["conv0"].outputs[TIME_DEPTH]), max_outputs=1))
-    #IMAGE_SUMMARIES.append(tf.summary.image('sample_input', inp_prep.outputs[TIME_DEPTH][:,:,:,:1], max_outputs=1))
+    #image_summaries.append(tf.summary.image('conv0/activations', put_activations_on_grid('conv0/activations', network.layers["conv0"].outputs[TIME_DEPTH]), max_outputs=1))
+    #image_summaries.append(tf.summary.image('sample_input', inp_prep.outputs[TIME_DEPTH][:,:,:,:1], max_outputs=1))
 
 
 # start session, merge summaries, start writers
@@ -770,10 +747,10 @@ with tf.name_scope('images'):
 
 with tf.Session() as sess:
 
-    train_merged = tf.summary.merge(TRAIN_SUMMARIES)
-    test_merged = tf.summary.merge(TEST_SUMMARIES)
-    add_merged = tf.summary.merge(ADDITIONAL_SUMMARIES)
-    image_merged = tf.summary.merge(IMAGE_SUMMARIES)
+    train_merged = tf.summary.merge(train_summaries)
+    test_merged = tf.summary.merge(test_summaries)
+    add_merged = tf.summary.merge(additional_summaries)
+    image_merged = tf.summary.merge(image_summaries)
 
     train_writer = tf.summary.FileWriter(
         RESULT_DIRECTORY + '/train', sess.graph)
