@@ -146,6 +146,8 @@ is_training = bb.PlaceholderModule(
     "is_training", shape=(), dtype=tf.bool)
 
 
+# TODO: This could be one class that can be incremented and maybe even account
+# for batch accuracy.
 global_step = tf.Variable(0, trainable=False, name='global_step')
 increment_global_step = tf.assign_add(
     global_step, 1, name='increment_global_step')
@@ -159,16 +161,18 @@ lrate = LearningRate(CONFIG['learning_rate'], CONFIG['lr_eta'],
 
 
 # TODO:
-# cropping augmenting and normalization should be part of a preprocessing
-# network, because that is basically what we are doing here.
-# solve it more elegantly, by passing the relevant config params to a bb class
-# also include the calculation of image statistics in that submodule
+# This is a dynamic preprocessor. Maybe it would make sense to make it static
+# and to write relevant files to disk.
 
-inp_prep = preprocessor.PreprocessorNetwork(CONFIG['cropped'],
+inp_prep = preprocessor.PreprocessorNetwork("preprocessor",
+                                            INP_MIN,
+                                            INP_MAX,
+                                            CONFIG['cropped'],
                                             CONFIG['augmented'],
                                             CONFIG['norm_by_stat'],
-                                            INP_MAX,
-                                            INP_MIN)
+                                            CONFIG['image_height'],
+                                            CONFIG['image_width'],
+                                            is_training.placeholder)
 inp_prep.add_input(inp)
 
 
@@ -178,6 +182,7 @@ inp_prep.add_input(inp)
 # check directories
 RESULT_DIRECTORY = FLAGS.output_dir + FLAGS.exp_name + '/'
 
+# This should be in infer_additional_parameters
 if FLAGS.dataset == "ycb_db1":
     TFRECORD_DIRECTORY = '/home/aecgroup/aecdata/Textures/\
 YCB_database1/tfrecord-files/single/{}/{}/'.format(
@@ -312,8 +317,7 @@ filenames = tf.placeholder(tf.string, shape=[None])
 dataset = tf.data.TFRecordDataset(filenames)
 dataset = dataset.map(parser)
 
-# TODO: Make this an environment variable, this gets forgotten way to often.
-# prepare dataset-structure, make sure data is not shuffled for evaluation
+
 if FLAGS.testrun:
     dataset = dataset.take(300)  # take smaller dataset for testing
 if not(FLAGS.evaluate_ckpt):
@@ -736,7 +740,7 @@ with tf.name_scope('images'):
             'conv0/kernels', network.layers["conv0"].conv.weights), max_outputs=1))
     else:
         image_summaries.append(tf.summary.image('conv0/kernels', put_kernels_on_grid('conv0/kernels', tf.reshape(network.layers["conv0"].conv.weights, [
-                               network.net_params['receptive_pixels'], 2 * network.net_params['receptive_pixels'], -1, network.net_params['n_features']])), max_outputs=1))
+                               2 * network.net_params['receptive_pixels'], network.net_params['receptive_pixels'], -1, network.net_params['n_features']])), max_outputs=1))
 
     #image_summaries.append(tf.summary.image('conv0/activations', put_activations_on_grid('conv0/activations', network.layers["conv0"].outputs[TIME_DEPTH]), max_outputs=1))
     #image_summaries.append(tf.summary.image('sample_input', inp_prep.outputs[TIME_DEPTH][:,:,:,:1], max_outputs=1))
@@ -1000,6 +1004,9 @@ with tf.Session() as sess:
     test_writer.close()
     image_writer.close()
     hist_writer.close()
+
+    # call the afterburner
+    # -----
 
 
 # _____________________________________________________________________________
