@@ -58,7 +58,8 @@ class RNN(bb.ComposedModule):
                              pool_strides, topdown_filter_shapes,
                              topdown_output_shapes, keep_prob, FLAGS):
         # TODO: Fix this input mess, just input FLAGS or a netparams dict
-        # create all modules of the network
+        # create all modules of the network. Network definition should happen
+        # within this file
         # -----
 
         self.layers = {}
