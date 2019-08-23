@@ -51,8 +51,36 @@ import os
 from utilities.tfrecord_handler import OSYCB_ENCODING
 from utilities.networks.buildingblocks import softmax_cross_entropy, \
     sigmoid_cross_entropy
+
 # helper functions
 # -----
+
+#TODO:
+def handle_io_dirs(configuration_dict):
+    """
+    handle_io_dirs takes a dict configuration_dict and established the
+    directory structure for the configured experiment. It returns paths to
+    the checkpoints and the image_data.
+    """
+    pass
+#TODO:
+def get_image_files(tfrecord_dir,
+        training_dir, validation_dir, test_dir, evaluation_dir):
+    """
+
+    """
+    list_of_dirs = [training_dir, validation_dir, test_dir, evaluation_dir]
+    list_of_files = []
+    for dir in list_of_dirs:
+        if dir:
+            if dir == 'all':
+                list_of_files.append()
+            else:
+                list_of_files.append()
+        else:
+            list_of_files.append()
+    training, validation, testing, evaluation = list_of_files
+    return training, validation, testing, evaluation
 
 
 def infer_additional_parameters(configuration_dict):
@@ -101,6 +129,14 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['crossentropy_fn'] = sigmoid_cross_entropy
     else:
         configuration_dict['crossentropy_fn'] = softmax_cross_entropy
+
+    # change the image height and image width if the network is supposed
+    # to crop the images
+    if configuration_dict['cropped'] or configuration_dict['augmented']:
+        configuration_dict['image_height'] = configuration_dict['image_width']\
+            // 10 * 4
+        configuration_dict['image_width'] = configuration_dict['image_width']\
+            // 10 * 4
 
     return configuration_dict
 
