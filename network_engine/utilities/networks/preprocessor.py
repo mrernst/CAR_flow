@@ -53,45 +53,60 @@ import utilities.networks.buildingblocks as bb
 
 
 class PreprocessorNetwork(bb.ComposedModule):
-    def define_inner_modules(self, name):
+    """
+    PreprocessorNetwork inherits from ComposedModule. It is a input network
+    that preprocesses the network input. It can crop parts of the image and
+    applies normalization before the image is handed to the neural network.
+    """
+    def define_inner_modules(self, name, inp_min, inp_max, cropped_bool,
+                             augmented_bool, norm_by_stat_bool,
+                             image_height, image_width, is_training):
         # create all modules of the network
         # -----
 
         self.layers = {}
 
-
+        # added a module that does nothing b/c it is not clear whether
+        # any of the following operations is indeed triggered.
+        self.layers['pass_through'] = bb.ActivationModule(
+            'pass_through', tf.identity)
 
         # crop input if desired
-        if FLAGS.cropped:
-            IMAGE_HEIGHT = IMAGE_WIDTH // 10 * 4
-            IMAGE_WIDTH = IMAGE_WIDTH // 10 * 4
-            inp_prep = bb.CropModule("input_cropped", IMAGE_HEIGHT, IMAGE_WIDTH)
-            inp_prep.add_input(inp)
-        # augment data if desired
-        elif FLAGS.augmented:
-            inp_prep = bb.AugmentModule(
-                "input_prep", is_training.placeholder, IMAGE_WIDTH)
-            IMAGE_HEIGHT = IMAGE_WIDTH // 10 * 4
-            IMAGE_WIDTH = IMAGE_WIDTH // 10 * 4
-            inp_prep.add_input(inp)
-        else:
-            inp_prep = inp
+        with tf.name_scope('image_manipulation'):
+            if cropped_bool:
+                self.layers['manipulated'] = bb.CropModule(
+                    "input_manipulated", image_height, image_width)
+
+            # augment data if desired
+            elif augmented_bool:
+                self.layers['manipulated'] = bb.AugmentModule(
+                    "input_manipulated", is_training, image_width * 10 // 4)
+
+            else:
+                pass
 
         with tf.name_scope('input_normalization'):
-            self.layers["inp_norm"] = bb.NormalizationModule("inp_norm")
+            self.layers["inp_norm"] = bb.NormalizationModule(
+                "inp_norm", inp_max, inp_min)
         # TODO: remove input normalization from the network definition
-
+        # TODO: integrate the normalization by input statistics
         # connect all modules of the network in a meaningful way
         # -----
 
         with tf.name_scope('wiring_of_modules'):
-            self.layers["conv0"].add_input(self.layers["inp_norm"], 0)
-            self.layers["pool0"].add_input(self.layers["conv0"])
+            if cropped_bool or augmented_bool:
+                self.layers["manipulated"].add_input(
+                    self.layers['pass_through'])
+                self.layers['input_normalization'].add_input(
+                    self.layers['manipulated'])
+
+            else:
+                self.layers['input_normalization'].add_input(
+                    self.layers['pass_through'])
+
         with tf.name_scope('input_output'):
-            self.input_module = self.layers["inp_norm"]
-            self.output_module = self.layers["fc0"]
-
-
+            self.input_module = self.layers["pass_through"]
+            self.output_module = self.layers["input_normalization"]
 
 
 # _____________________________________________________________________________
