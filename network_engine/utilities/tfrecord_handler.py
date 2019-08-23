@@ -98,6 +98,7 @@ def tfrecord_auto_traversal(dirpath='./', shuffled=True):
 # combine tfrecords from different paths
 # -----
 
+# TODO: Needs to be rewritten
 def all_percentages_tfrecord_paths(FLAGS, type='train', shuffled=True):
     """
     all_percentages_tfrecord_paths takes FLAGS and returns all corresponding
