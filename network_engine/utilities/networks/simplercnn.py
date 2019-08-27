@@ -52,15 +52,42 @@ import numpy as np
 import utilities.networks.buildingblocks as bb
 
 
-class RNN(bb.ComposedModule):
-    def define_inner_modules(self, name, is_training, activations,
-                             conv_filter_shapes, bias_shapes, ksizes,
-                             pool_strides, topdown_filter_shapes,
-                             topdown_output_shapes, keep_prob, FLAGS):
-        # TODO: Fix this input mess, just input FLAGS or a netparams dict
-        # create all modules of the network. Network definition should happen
-        # within this file
-        # -----
+# TODO: Write description for this function
+def constructor(name,
+                configuration_dict,
+                is_training,
+                keep_prob,
+                custom_net_parameters=None):
+    """
+    """
+
+    def get_net_parameters(net_param_dict):
+        net_param_dict["activations"] = 1
+        net_param_dict["conv_filter_shapes"] = 1
+        net_param_dict["bias_shapes"] = 1
+        net_param_dict["ksizes"] = 1
+        net_param_dict["pool_strides"] = 1
+        net_param_dict["topdown_filter_shapes"] = 1
+        net_param_dict["topdown_output_shapes"] = 1
+
+        return net_param_dict
+
+    if custom_net_parameters:
+        net_parameters = custom_net_parameters
+    else:
+        net_parameters = {}
+        get_net_parameters(net_parameters)
+
+    # copy necessary items from configuration
+    net_parameters['connectivity'] = configuration_dict['connectivity']
+    net_parameters['batchnorm'] = configuration_dict['batchnorm']
+
+    return NetworkClass(name, net_parameters, is_training, keep_prob)
+
+
+class NetworkClass(bb.ComposedModule):
+    def define_inner_modules(self, name, net_param_dict,
+                             is_training, keep_prob):
 
         self.layers = {}
         with tf.name_scope('input_normalization'):
@@ -159,7 +186,7 @@ class RNN(bb.ComposedModule):
             self.layers["dropoutc1"].add_input(self.layers["pool1"])
             self.layers["flatpool1"].add_input(self.layers["dropoutc1"])
             self.layers["fc0"].add_input(self.layers["flatpool1"])
-            if "L" in FLAGS.architecture:
+            if "L" in FLAGS.connectivity:
                 if FLAGS.batchnorm:
                     self.layers["lateral0"].add_input(
                         self.layers["conv0"].preactivation)
@@ -182,7 +209,7 @@ class RNN(bb.ComposedModule):
                         self.layers["conv1"].preactivation)
                     self.layers["conv1"].add_input(
                         self.layers["lateral1"], -1)
-            if "T" in FLAGS.architecture:
+            if "T" in FLAGS.connectivity:
                 if FLAGS.batchnorm:
                     self.layers["topdown0_batchnorm"].add_input(
                         self.layers["topdown0"])
