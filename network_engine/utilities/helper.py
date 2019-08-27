@@ -48,38 +48,151 @@ import tensorflow as tf
 import numpy as np
 import csv
 import os
-from utilities.tfrecord_handler import OSYCB_ENCODING
+import utilities.tfrecord_handler as tfrecord_handler
 from utilities.networks.buildingblocks import softmax_cross_entropy, \
     sigmoid_cross_entropy
-
 # helper functions
 # -----
 
-#TODO:
-def handle_io_dirs(configuration_dict):
+
+def get_output_directory(configuration_dict):
     """
-    handle_io_dirs takes a dict configuration_dict and established the
+    get_output_directory takes a dict configuration_dict and established the
     directory structure for the configured experiment. It returns paths to
-    the checkpoints and the image_data.
-    """
-    pass
-#TODO:
-def get_image_files(tfrecord_dir,
-        training_dir, validation_dir, test_dir, evaluation_dir):
+    the checkpoints and the writer directories.
     """
 
+    writer_directory = '{}/{}/{}/'.format(
+        configuration_dict['output_dir'],
+        configuration_dict['exp_name'],
+        configuration_dict['name'])
+
+    # architecture string
+    architecture_string = ''
+    architecture_string += '{}{}_{}l_fm{}_d{}_l2{}'.format(
+        configuration_dict['connectivity'],
+        configuration_dict['timedepth'],
+        configuration_dict['network_depth'],
+        configuration_dict['feature_mult'],
+        configuration_dict['keep_prob'],
+        configuration_dict['l2_lambda'])
+
+    if configuration_dict['batchnorm']:
+        architecture_string += '_bn1'
+    else:
+        architecture_string += '_bn0'
+    architecture_string += '_bs{}'.format(configuration_dict['batchsize'])
+    if configuration_dict['decaying_lrate']:
+        architecture_string += '_lr{}-{}-{}'.format(
+            configuration_dict['lr_eta'],
+            configuration_dict['lr_delta'],
+            configuration_dict['lr_d'])
+    else:
+        architecture_string += '_lr{}'.format(
+            configuration_dict['learning_rate'])
+
+    # data string
+    data_string = ''
+    if ('ycb' in configuration_dict['dataset']):
+        data_string += "{}_{}occ_{}p".format(
+            configuration_dict['dataset'],
+            configuration_dict['n_occluders'],
+            configuration_dict['occlusion_percentage'])
+    else:
+        data_string += "{}_{}occ_Xp".format(
+            configuration_dict['dataset'],
+            configuration_dict['n_occluders'])
+
+    # format string
+    format_string = ''
+    format_string += '{}x{}x{}'.format(
+        configuration_dict['image_height'],
+        configuration_dict['image_width'],
+        configuration_dict['image_channels'])
+    format_string += "_{}_{}".format(
+        configuration_dict.color,
+        configuration_dict.label_type)
+
+    writer_directory += "{}/{}/{}/".format(architecture_string,
+                                           data_string, format_string)
+
+    checkpoint_directory = writer_directory + 'checkpoints/'
+
+    # make sure the directories exist, otherwise create them
+    mkdir_p(checkpoint_directory)
+
+    return writer_directory, checkpoint_directory
+
+
+def get_input_directory(configuration_dict):
+    """
+    get_input_directory takes a dict configuration_dict and returns a path to
+    the image_data and a parser for the tf_records files.
+    """
+
+    if configuration_dict['dataset'] == "osycb":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'osycb/tfrecord-files/{}occ/{}p/{}/'.format(
+            configuration_dict['n_occluders'],
+            configuration_dict['occlusion_percentage'],
+            configuration_dict['downsampling'])
+        parser = tfrecord_handler._osycb_parse_single
+    elif configuration_dict['dataset'] == "osmnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'osmnist/tfrecord-files/{}occ/'.format(
+            configuration_dict['n_occluders'])
+        parser = tfrecord_handler._osmnist_parse_single
+    elif configuration_dict['dataset'] == "mnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'mnist/tfrecord-files/{}occ/'.format(
+            configuration_dict['n_occluders'])
+        parser = tfrecord_handler._mnist_parse_single
+    elif configuration_dict['dataset'] == "osdigit":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'digit_database/tfrecord-files/{}{}/'.format(
+            configuration_dict['n_occluders']-1,
+            configuration_dict['dataset'])
+        parser = tfrecord_handler._osdigits_parse_single
+    elif configuration_dict['dataset'] == "digit":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'digit_database/tfrecord-files/{}{}/'.format(
+            configuration_dict['n_occluders']-1,
+            configuration_dict['dataset'])
+        parser = tfrecord_handler._digits_parse_single
+    else:
+        print("[INFO] Dataset not defined")
+        pass
+
+    return tfrecord_dir, parser
+
+
+def get_image_files(training_dir, validation_dir, test_dir, evaluation_dir,
+                    input_directory, dataset, n_occluders, downsampling):
+    """
+    get_image_files takes paths to tfrecord_dir, training_dir, validation_dir
+    test_dir and evaluation_dir and returns the corresponding file names.
     """
     list_of_dirs = [training_dir, validation_dir, test_dir, evaluation_dir]
+    list_of_types = ['train', 'validation', 'test', 'evaluation']
     list_of_files = []
     for dir in list_of_dirs:
         if dir:
             if dir == 'all':
-                list_of_files.append()
+                type = list_of_types[list_of_dirs.index(dir)]
+                list_of_files.append(
+                    tfrecord_handler.all_percentages_tfrecord_paths(
+                        type, dataset, input_directory,
+                        n_occluders, downsampling))
             else:
-                list_of_files.append()
+                list_of_files.append(
+                    tfrecord_handler.tfrecord_auto_traversal(dir))
         else:
-            list_of_files.append()
+            list_of_files.append(tfrecord_handler.tfrecord_auto_traversal(
+                dir + type + '/'))
     training, validation, testing, evaluation = list_of_files
+    if len(testing) == 0:
+        print('[INFO] No test-set found, using validation-set instead')
+        testing += validation
     return training, validation, testing, evaluation
 
 
@@ -96,7 +209,7 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['image_width'] = 320
         configuration_dict['image_channels'] = 3
         configuration_dict['classes'] = 80
-        configuration_dict['class_encoding'] = OSYCB_ENCODING
+        configuration_dict['class_encoding'] = tfrecord_handler.OSYCB_ENCODING
         if configuration_dict['downsampling'] == 'ds2':
             configuration_dict['image_height'] //= 2
             configuration_dict['image_width'] //= 2
@@ -109,15 +222,15 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['image_width'] = 28
         configuration_dict['image_channels'] = 1
         configuration_dict['classes'] = 10
-        configuration_dict['class_encoding'] = \
-            np.array(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+        configuration_dict['class_encoding'] = np.array(
+            ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
     else:
         configuration_dict['image_height'] = 32
         configuration_dict['image_width'] = 32
         configuration_dict['image_channels'] = 1
         configuration_dict['classes'] = 10
-        configuration_dict['class_encoding'] = \
-            np.array(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+        configuration_dict['class_encoding'] = np.array(
+            ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
 
     if configuration_dict['color'] == 'grayscale':
         configuration_dict['image_channels'] = 1
