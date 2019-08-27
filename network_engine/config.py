@@ -115,11 +115,10 @@ def get_aux():
     aux = {}
     aux['wdir'] = ["/Users/markus/Research/Code/saturn/"]
     aux['input_dir'] = ["/Users/markus/Research/Code/saturn/datasets/"]
+    # aux['input_dir'] = ["/home/aecgroup/aecdata/Textures/"]
     aux['output_dir'] = ["/Users/markus/Research/Code/saturn/experiments/"]
+    # aux['output_dir'] = ["/home/aecgroup/aecdata/Results_python/markus/"]
     aux['network_module'] = ["utilities.networks.simplercnn"]
-    # '/home/aecgroup/aecdata/Results_python/markus/'
-    aux['restore_ckpt'] = [True]
-    aux['evaluate_ckpt'] = [False]
     aux['training_dir'] = [""]
     aux['validation_dir'] = [""]
     aux['test_dir'] = [""]
