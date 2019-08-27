@@ -68,7 +68,8 @@ def get_par():
     par = {}
 
     par['exp_name'] = ["noname_experiment"]
-    # TODO: par['name'] must be defined in the run_engine
+    # par['name'] must be defined as a FLAG to engine, b/c it resembles the
+    # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
     par['dataset'] = ["mnist"]
 
@@ -78,12 +79,12 @@ def get_par():
     par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BLT']
     par['network_depth'] = [2]
     par['time_depth'] = [3]
-    par['timedepth_beyond'] = [0]
-    par['feature_mult'] = [1]
+    par['time_depth_beyond'] = [0]
+    par['feature_multiplier'] = [1]
     par['keep_prob'] = [1.0]
 
     par['stereo'] = [False, True]
-    par['downsampling'] = ['ds4']
+    par['downsampling'] = ['fine']
     par['color'] = ['grayscale']
     par['cropped'] = [False]
     par['augmented'] = [False]
@@ -119,6 +120,7 @@ def get_aux():
     aux['output_dir'] = ["/Users/markus/Research/Code/saturn/experiments/"]
     # aux['output_dir'] = ["/home/aecgroup/aecdata/Results_python/markus/"]
     aux['network_module'] = ["utilities.networks.simplercnn"]
+    aux['norm_by_stat'] = [False]
     aux['training_dir'] = [""]
     aux['validation_dir'] = [""]
     aux['test_dir'] = [""]

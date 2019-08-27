@@ -48,6 +48,7 @@ import tensorflow as tf
 import numpy as np
 import csv
 import os
+import errno
 import utilities.tfrecord_handler as tfrecord_handler
 from utilities.networks.buildingblocks import softmax_cross_entropy, \
     sigmoid_cross_entropy
@@ -55,25 +56,24 @@ from utilities.networks.buildingblocks import softmax_cross_entropy, \
 # -----
 
 
-def get_output_directory(configuration_dict):
+def get_output_directory(configuration_dict, flags):
     """
     get_output_directory takes a dict configuration_dict and established the
     directory structure for the configured experiment. It returns paths to
     the checkpoints and the writer directories.
     """
 
-    writer_directory = '{}/{}/{}/'.format(
+    writer_directory = '{}{}/'.format(
         configuration_dict['output_dir'],
-        configuration_dict['exp_name'],
-        configuration_dict['name'])
+        flags.name)
 
     # architecture string
     architecture_string = ''
     architecture_string += '{}{}_{}l_fm{}_d{}_l2{}'.format(
         configuration_dict['connectivity'],
-        configuration_dict['timedepth'],
+        configuration_dict['time_depth'],
         configuration_dict['network_depth'],
-        configuration_dict['feature_mult'],
+        configuration_dict['feature_multiplier'],
         configuration_dict['keep_prob'],
         configuration_dict['l2_lambda'])
 
@@ -110,8 +110,8 @@ def get_output_directory(configuration_dict):
         configuration_dict['image_width'],
         configuration_dict['image_channels'])
     format_string += "_{}_{}".format(
-        configuration_dict.color,
-        configuration_dict.label_type)
+        configuration_dict['color'],
+        configuration_dict['label_type'])
 
     writer_directory += "{}/{}/{}/".format(architecture_string,
                                            data_string, format_string)
@@ -144,8 +144,7 @@ def get_input_directory(configuration_dict):
         parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "mnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'mnist/tfrecord-files/{}occ/'.format(
-            configuration_dict['n_occluders'])
+            'mnist/tfrecord-files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "osdigit":
         tfrecord_dir = configuration_dict['input_dir'] + \
@@ -166,8 +165,9 @@ def get_input_directory(configuration_dict):
     return tfrecord_dir, parser
 
 
-def get_image_files(training_dir, validation_dir, test_dir, evaluation_dir,
-                    input_directory, dataset, n_occluders, downsampling):
+def get_image_files(tfrecord_dir, training_dir, validation_dir, test_dir,
+                    evaluation_dir, input_directory, dataset, n_occluders,
+                    downsampling):
     """
     get_image_files takes paths to tfrecord_dir, training_dir, validation_dir
     test_dir and evaluation_dir and returns the corresponding file names.
@@ -176,9 +176,9 @@ def get_image_files(training_dir, validation_dir, test_dir, evaluation_dir,
     list_of_types = ['train', 'validation', 'test', 'evaluation']
     list_of_files = []
     for dir in list_of_dirs:
+        type = list_of_types[list_of_dirs.index(dir)]
         if dir:
             if dir == 'all':
-                type = list_of_types[list_of_dirs.index(dir)]
                 list_of_files.append(
                     tfrecord_handler.all_percentages_tfrecord_paths(
                         type, dataset, input_directory,
@@ -188,7 +188,7 @@ def get_image_files(training_dir, validation_dir, test_dir, evaluation_dir,
                     tfrecord_handler.tfrecord_auto_traversal(dir))
         else:
             list_of_files.append(tfrecord_handler.tfrecord_auto_traversal(
-                dir + type + '/'))
+                tfrecord_dir + type + '/'))
     training, validation, testing, evaluation = list_of_files
     if len(testing) == 0:
         print('[INFO] No test-set found, using validation-set instead')
@@ -251,6 +251,10 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['image_width'] = configuration_dict['image_width']\
             // 10 * 4
 
+    # overwrite the default time_depth if network is not recurrent
+    if configuration_dict['connectivity'] in ['B', 'BK', 'BF']:
+        configuration_dict['time_depth'] = 0
+        configuration_dict['time_depth_beyond'] = 0
     return configuration_dict
 
 
@@ -274,6 +278,9 @@ def convert_config_types(config_dictionary):
         try:
             if '.' in value:
                 config_dictionary[key] = float(value)
+            elif ('True' in value) or ('False' in value):
+                config_dictionary[key] = value.lower() in \
+                    ("yes", "true", "t", "1")
             else:
                 config_dictionary[key] = int(value)
         except(ValueError, TypeError):

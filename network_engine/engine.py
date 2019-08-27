@@ -73,6 +73,7 @@ import utilities.networks.buildingblocks as bb
 import utilities.networks.preprocessor as preprocessor
 
 
+# TODO: Write docstring for LearningRate
 class LearningRate(object):
     """docstring for LearningRate."""
 
@@ -90,7 +91,7 @@ class LearningRate(object):
         self.divide_by_10 = tf.assign(self.rate, self.rate / 10,
                                       name='divide_by_10')
 
-        # TODO initial learning rate should be specified in the setup
+        # TODO: initial learning rate should be specified in the setup
         self.decay_by_epoch = tf.assign(self.rate, self.eta * self.delta **
                                         (tf.cast(global_epoch_variable,
                                          tf.float32) /
@@ -108,10 +109,14 @@ tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' +
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
+tf.app.flags.DEFINE_string('name', '',
+                           'name of the run, i.e. iteration1')
 tf.app.flags.DEFINE_boolean('restore_ckpt', True,
                             'restore model from last checkpoint')
 tf.app.flags.DEFINE_boolean('evaluate_ckpt', False,
                             'load model and evaluate')
+
+
 
 FLAGS = tf.app.flags.FLAGS
 CONFIG = helper.infer_additional_parameters(
@@ -171,22 +176,24 @@ lrate = LearningRate(CONFIG['learning_rate'],
 # -----
 
 # check directories
-TFRECORD_DIRECTORY, PARSER = get_input_directory(CONFIG)
-WRITER_DIRECTORY, CHECKPOINT_DIRECTORY = get_output_directory(CONFIG)
+TFRECORD_DIRECTORY, PARSER = helper.get_input_directory(CONFIG)
+WRITER_DIRECTORY, CHECKPOINT_DIRECTORY = \
+    helper.get_output_directory(CONFIG, FLAGS)
 
 # get image data
 # -----
 
 # assign data_directories
 training_filenames, validation_filenames, test_filenames,\
-    evaluation_filenames = get_image_files(CONFIG['training_dir'],
-                                           CONFIG['validation_dir'],
-                                           CONFIG['test_dir'],
-                                           CONFIG['evaluation_dir'],
-                                           CONFIG['input_directory'],
-                                           CONFIG['dataset'],
-                                           CONFIG['n_occluders'],
-                                           CONFIG['downsampling'])
+    evaluation_filenames = helper.get_image_files(TFRECORD_DIRECTORY,
+                                                  CONFIG['training_dir'],
+                                                  CONFIG['validation_dir'],
+                                                  CONFIG['test_dir'],
+                                                  CONFIG['evaluation_dir'],
+                                                  CONFIG['input_dir'],
+                                                  CONFIG['dataset'],
+                                                  CONFIG['n_occluders'],
+                                                  CONFIG['downsampling'])
 
 
 # parse data from tf-record files
@@ -200,7 +207,8 @@ if FLAGS.testrun:
 if not(FLAGS.evaluate_ckpt):
     dataset = dataset.shuffle(buffer_size=CONFIG['buffer_size'])
 
-dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(BATCH_SIZE))
+dataset = dataset.apply(
+    tf.contrib.data.batch_and_drop_remainder(CONFIG['batchsize']))
 iterator = dataset.make_initializable_iterator()
 next_batch = iterator.get_next()
 
@@ -259,19 +267,20 @@ network = circuit.constructor("rcnn",
 
 one_time_error = bb.ErrorModule("cross_entropy", CONFIG['crossentropy_fn'])
 error = bb.TimeAddModule("add_error")
-optimizer = bb.OptimizerModule("adam", tf.train.AdamOptimizer(lrate))
+optimizer = bb.OptimizerModule("adam", tf.train.AdamOptimizer(lrate.rate))
 accuracy = bb.BatchAccuracyModule("accuracy")
 
 network.add_input(inp_prep)
 one_time_error.add_input(network)
 one_time_error.add_input(labels)
 error.add_input(one_time_error, 0)
-error.add_input(error, -1)  # seems like a good idea, but is it necessary
+error.add_input(error, -1)  # seems good, but is this the right way..?
 optimizer.add_input(error)
 accuracy.add_input(network)
 accuracy.add_input(labels)
 
-# L2 regularization
+
+# L2 regularization term
 if CONFIG['l2_lambda'] != 0:
     lossL2 = bb.NontrainableVariableModule("lossL2", (), dtype=tf.float32)
     lossL2.variable = lossL2.variable.assign(
@@ -279,14 +288,18 @@ if CONFIG['l2_lambda'] != 0:
             [tf.nn.l2_loss(v) for v in tf.trainable_variables()]) *
         CONFIG['l2_lambda'] / (CONFIG['time_depth'] + 1))
     error.add_input(lossL2, 0)
+else:
+    pass
 
+
+# create outputs, i.e. unfold the network
 error.create_output(CONFIG['time_depth'] + CONFIG['time_depth_beyond'])
 optimizer.create_output(CONFIG['time_depth'])
 
-for time in range(0, (TIME_DEPTH + TIME_DEPTH_BEYOND + 1)):
+for time in range(0, (CONFIG['time_depth'] + CONFIG['time_depth_beyond'] + 1)):
     accuracy.create_output(time)
 
-if FLAGS.label_type == 'nhot':
+if CONFIG['label_type'] == 'nhot':
     accuracy = bb.NHotBatchAccuracyModule("accuracy", all_labels_true=True)
     partial_accuracy = bb.NHotBatchAccuracyModule(
         "partial_accuracy", all_labels_true=False)
@@ -296,59 +309,19 @@ if FLAGS.label_type == 'nhot':
     partial_accuracy.add_input(network)
     partial_accuracy.add_input(labels)
 
-    # accuracy.create_output(TIME_DEPTH)
-    # partial_accuracy.create_output(TIME_DEPTH)
-    # for time in range(TIME_DEPTH + 1,(TIME_DEPTH + TIME_DEPTH_BEYOND + 1)):
-    #  accuracy.create_output(time)
-    #  partial_accuracy.create_output(time)
-    for time in range(0, (TIME_DEPTH + TIME_DEPTH_BEYOND + 1)):
+    for time in range(0, (CONFIG['time_depth'] +
+                      CONFIG['time_depth_beyond'] + 1)):
         accuracy.create_output(time)
         partial_accuracy.create_output(time)
 
 
-# Class Activation Mapping setup -> Put this into a module. You could review timesteps and so on.
-# Might be useful and more understandable
+# average accuracy and error at mean test-time
 # -----
 
-if FLAGS.classactivation:
-    top_conv = network.layers["dropoutc{}".format(
-        FLAGS.network_depth - 1)].outputs[TIME_DEPTH]
-
-    if FLAGS.batchnorm:
-        fc_weights = network.layers['fc0'].input_module.weights
-    else:
-        fc_weights = network.layers['fc0'].weights
-
-    class_activation_map, class_activation_map_resized = get_class_map(tf.argmax(
-        network.outputs[TIME_DEPTH], axis=1), top_conv, fc_weights, IMAGE_WIDTH, BATCH_SIZE)
-
-    cam_maxima = tf.reduce_max(
-        class_activation_map,
-        axis=[1, 2, 3], keep_dims=True
-    )
-
-    binary_cam = tf.to_int32(class_activation_map > 0.2 * cam_maxima)
-
-    # get the segmentation maps for the target only
-    segmap_left = next_batch[2][:, :, :, :1]
-    segmap_right = next_batch[3][:, :, :, :1]
-
-    # binarize and maxpooling
-    maxpooled_segmap = segmap_left
-    maxpooled_segmap = tf.to_int32(maxpooled_segmap > 0)
-    maxpooled_segmap = tf.nn.max_pool(
-        maxpooled_segmap, [1, 4, 4, 1], [1, 4, 4, 1], "SAME")
-
-    # define a class_activation_map error
-    segmentation_accuracy = 1. - tf.losses.absolute_difference(
-        maxpooled_segmap, binary_cam, reduction=tf.losses.Reduction.MEAN)
-else:
-    class_activation_map_resized = tf.Variable(0., validate_shape=False)
-
-
-# average accuracy and error at mean test-time (maybe solve more intelligently) + embedding stuff
-# -----
-
+# (maybe solve more intelligently) + embedding stuff
+# TODO: separate average accuracy and embedding stuff into two
+# functions/classes maybe similar to learning rate class?
+# write an embedding class that has parameters 
 THU_HEIGHT = 32
 THU_WIDTH = int(IMAGE_WIDTH / IMAGE_HEIGHT * 32)
 
@@ -415,29 +388,10 @@ for time in accuracy.outputs:
 
 
 # needed because tf 1.4 does not support grouping dict of tensor
-if FLAGS.classactivation:
-    total_test_segmentation_accuracy = {}
-    update_total_test_segmentation_accuracy = {}
-    reset_total_test_segmentation_accuracy = {}
-    average_segmentation_accuracy = {}
-
-    total_test_segmentation_accuracy[TIME_DEPTH] = tf.Variable(
-        0., trainable=False)
-    update_total_test_segmentation_accuracy[TIME_DEPTH] = tf.assign_add(
-        total_test_segmentation_accuracy[TIME_DEPTH], segmentation_accuracy)
-    reset_total_test_segmentation_accuracy[TIME_DEPTH] = tf.assign(
-        total_test_segmentation_accuracy[TIME_DEPTH], 0.)
-    average_segmentation_accuracy[TIME_DEPTH] = total_test_segmentation_accuracy[TIME_DEPTH] / count
-
-    update_accloss = tf.stack((list(update_total_test_loss.values(
-    )) + list(update_total_test_accuracy.values()) + list(update_total_test_segmentation_accuracy.values())))
-    reset_accloss = tf.stack((list(reset_total_test_accuracy.values(
-    )) + list(reset_total_test_loss.values()) + list(reset_total_test_segmentation_accuracy.values())))
-else:
-    update_accloss = tf.stack(
-        (list(update_total_test_loss.values()) + list(update_total_test_accuracy.values())))
-    reset_accloss = tf.stack(
-        (list(reset_total_test_accuracy.values()) + list(reset_total_test_loss.values())))
+update_accloss = tf.stack(
+    (list(update_total_test_loss.values()) + list(update_total_test_accuracy.values())))
+reset_accloss = tf.stack(
+    (list(reset_total_test_accuracy.values()) + list(reset_total_test_loss.values())))
 
 update_emb = tf.group(tf.stack((list(update_embedding_preclass.values()))),
                       update_embedding_labels, update_embedding_thumbnails)
@@ -663,11 +617,11 @@ with tf.Session() as sess:
     test_writer = tf.summary.FileWriter(WRITER_DIRECTORY + '/validation')
     image_writer = tf.summary.FileWriter(WRITER_DIRECTORY + '/validation/img')
 
-    # TODO: activate when testrun is true
-    # debug writer for metadata etc.
-    # debug_writer = tf.summary.FileWriter(WRITER_DIRECTORY + '/debug', sess.graph)
-    # run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-    # run_metadata = tf.RunMetadata()
+    if FLAGS.testrun:
+        # debug writer for metadata etc.
+        debug_writer = tf.summary.FileWriter(WRITER_DIRECTORY + '/debug', sess.graph)
+        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
 
     saver = tf.train.Saver(keep_checkpoint_every_n_hours=1, max_to_keep=2)
     sess.run(tf.global_variables_initializer())

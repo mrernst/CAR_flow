@@ -118,6 +118,7 @@ class SbatchDocument(object):
             '       --restore_ckpt=true \ \n' + \
             '       --evaluate_ckpt=false \ \n' + \
             '       --config_file ${config_array[$j]}\n' + \
+            '       --name iteration$i\n' + \
             'done \n'
 
         footer = \
@@ -152,6 +153,10 @@ class ExperimentEnvironment(object):
 
         self.est_folder_structure()
         self.copy_experiment_files()
+
+    def update_parameters(self):
+        self.parameters['output_dir'] = [self.data_dir]
+        return self.parameters
 
     def est_folder_structure(self):
         """
@@ -213,15 +218,12 @@ class ExperimentConfiguration(object):
         self.infer_additional_parameters(parameters)
 
     def infer_additional_parameters(self, parameters):
-        # TODO: this function is supposed to gather all other parameters
-        # needed by the engine - IMAGE SIZES etc.
-        # maybe it should be a helper function and not part of the run_engine
+        # this was implemented as a helper function and is not part of the
+        # run_engine file
         self.parameters = parameters
         pass
 
     def generate_single_configurations(self):
-        all_configs = {}
-
         number_of_configs = np.prod([len(v) for v in self.parameters.values()])
         a = list(self.parameters.values())
         combinations = list(itertools.product(*a))
@@ -255,10 +257,9 @@ if __name__ == '__main__':
     # -----
 
     environment = ExperimentEnvironment(par)
-
+    par = environment.update_parameters()
     # generate configuration files
     # -----
-
     config = ExperimentConfiguration(par)
     config_paths = config.write_config_files(environment.config_dir)
 

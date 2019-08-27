@@ -88,7 +88,9 @@ class PreprocessorNetwork(bb.ComposedModule):
         with tf.name_scope('input_normalization'):
             self.layers["inp_norm"] = bb.NormalizationModule(
                 "inp_norm", inp_max, inp_min)
-        # TODO: remove input normalization from the network definition
+        # with tf.name_scope('pixel_wise_normalization'):
+        #     self.layers["pw_norm"] = bb.PixelwiseNormalizationModule(
+        #         "inp_norm")
         # TODO: integrate the normalization by input statistics
         # connect all modules of the network in a meaningful way
         # -----
@@ -97,18 +99,19 @@ class PreprocessorNetwork(bb.ComposedModule):
             if cropped_bool or augmented_bool:
                 self.layers["manipulated"].add_input(
                     self.layers['pass_through'])
-                self.layers['input_normalization'].add_input(
+                self.layers['inp_norm'].add_input(
                     self.layers['manipulated'])
 
             else:
-                self.layers['input_normalization'].add_input(
+                self.layers['inp_norm'].add_input(
                     self.layers['pass_through'])
 
         with tf.name_scope('input_output'):
             self.input_module = self.layers["pass_through"]
-            self.output_module = self.layers["input_normalization"]
+            self.output_module = self.layers["inp_norm"]
 
-
+# TODO: Overwrite init function to have variables for the input Statistics
+# TODO: Write Method that calcs those statistics given a session and filenames
 # _____________________________________________________________________________
 
 
