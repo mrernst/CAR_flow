@@ -26,4 +26,6 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
+.tfrecord
+
 __pycache__
