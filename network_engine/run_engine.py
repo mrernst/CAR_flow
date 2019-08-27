@@ -56,6 +56,12 @@ import itertools
 from config import get_par, get_aux
 from utilities.helper import mkdir_p
 
+# commandline arguments
+# -----
+tf.app.flags.DEFINE_integer('tensorboard_port', 6006,
+                            'port for tensorboard monitoring')
+FLAGS = tf.app.flags.FLAGS
+
 
 class SbatchDocument(object):
     """docstring for SbatchDocument."""
@@ -109,6 +115,8 @@ class SbatchDocument(object):
             '    echo "job $j" \n' + \
             '    srun python3 engine.py \ \n' + \
             '       --testrun=false \ \n' + \
+            '       --restore_ckpt=true \ \n' + \
+            '       --evaluate_ckpt=false \ \n' + \
             '       --config_file ${config_array[$j]}\n' + \
             'done \n'
 
@@ -262,6 +270,14 @@ if __name__ == '__main__':
                                  par['iterations'][0])
     sbatch_file.run_sbatch()
 
+    # start a tensorboard instance to monitor experiment
+    # -----
+    os.system("screen -dmS tb_monitor")
+    os.system("screen -S tb_monitor -p 0 -X stuff \
+        'tensorboard --logdir {} --port {}\n '".format(
+        environment.data_dir, FLAGS.tensorboard_port))
+    print("[INFO] monitoring {} in tensorboard at port {}".format(
+        environment.experiment_name, FLAGS.tensorboard_port))
 # _____________________________________________________________________________
 # Description:
 #
