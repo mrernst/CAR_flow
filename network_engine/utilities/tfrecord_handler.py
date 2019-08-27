@@ -99,30 +99,24 @@ def tfrecord_auto_traversal(dirpath='./', shuffled=True):
 # -----
 
 # TODO: Needs to be rewritten
-def all_percentages_tfrecord_paths(FLAGS, type='train', shuffled=True):
+def all_percentages_tfrecord_paths(type, dataset, n_occluders, downsampling,
+                                   input_directory, shuffled=True):
     """
     all_percentages_tfrecord_paths takes FLAGS and returns all corresponding
     tfrecords the specific dataset.
     """
     filenames = []
-    if FLAGS.dataset == "ycb_db2":
+    if dataset == "osycb":
         for occp in [20, 40, 60, 80]:
-            TFRECORD_DIRECTORY = '/home/aecgroup/aecdata/Textures/\
-                YCB_database2/tfrecord-files/{}occ/{}p/{}/'.format(
-                FLAGS.n_occluders, occp, FLAGS.downsampling)
+            tfrecord_directory = input_directory + \
+                'osycb/tfrecord-files/{}occ/{}p/{}/'.format(
+                    n_occluders, occp,  downsampling)
             filenames += tfrecord_auto_traversal(
-                TFRECORD_DIRECTORY + type + '/')
-    elif FLAGS.dataset == "ycb_db2b":
-        for occp in [20, 40, 60, 80]:
-            TFRECORD_DIRECTORY = '/home/aecgroup/aecdata/Textures/\
-                YCB_database2/tfrecord-files/{}occ/10class/{}p/{}/'.format(
-                FLAGS.n_occluders, occp, FLAGS.downsampling)
-            filenames += tfrecord_auto_traversal(
-                TFRECORD_DIRECTORY + type + '/')
-    elif 'stereo' in FLAGS.dataset:
+                tfrecord_directory + type + '/')
+    elif 'osdigit' in dataset:
         for occp in [3, 4, 5]:
-            TFRECORD_DIRECTORY = '/home/aecgroup/aecdata/Textures/\
-digit_database/tfrecord-files/{}stereosquare/'.format(occp)
+            TFRECORD_DIRECTORY = input_directory + \
+                'digit_database/tfrecord-files/{}{}/'.format(occp, dataset)
             filenames += tfrecord_auto_traversal(
                 TFRECORD_DIRECTORY + type + '/')
     if shuffled:
@@ -292,6 +286,24 @@ def _osmnist_parse_single(example_proto):
 
     return image_decoded_l, image_decoded_r, segmap_decoded_l, \
         segmap_decoded_r, n_hot, one_hot
+
+
+def _mnist_parse_single(example_proto):
+    features = {
+        "image": tf.FixedLenFeature([], tf.string),
+        "label": tf.FixedLenFeature([], tf.int64),
+    }
+
+    parsed_features = tf.parse_single_example(example_proto, features)
+
+    no_classes = 10
+    one_hot = tf.one_hot(parsed_features["label"], no_classes)
+    n_hot = one_hot
+
+    images_encoded = parsed_features["image"]
+    image_decoded = tf.image.decode_png(images_encoded)
+
+    return image_decoded, image_decoded, n_hot, one_hot
 
 
 def decode_bytebatch(raw_bytes):
