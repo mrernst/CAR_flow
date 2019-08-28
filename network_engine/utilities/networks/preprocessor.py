@@ -6,9 +6,9 @@
 #                                                                         _.oo.
 # August 2019                                    _.u[[/;:,.         .odMMMMMM'
 #                                             .o888UU[[[/;:-.  .o@P^    MMM^
-# simplercnn.py                              oN88888UU[[[/;::-.        dP^
-# network definition of                     dNMMNN888UU[[[/;:--.   .o@P^
-# Spoerer 2017 network                     ,MMMMMMN888UU[[/;::-. o@^
+# preprocessor.py                            oN88888UU[[[/;::-.        dP^
+# preprocess files and                      dNMMNN888UU[[[/;:--.   .o@P^
+# normalize according to input stats       ,MMMMMMN888UU[[/;::-. o@^
 #                                          NNMMMNN888UU[[[/~.o@P^
 # Markus Ernst                             888888888UU[[[/o@^-..
 #                                         oI8888UU[[[/o@P^:--..
@@ -58,9 +58,94 @@ class PreprocessorNetwork(bb.ComposedModule):
     that preprocesses the network input. It can crop parts of the image and
     applies normalization before the image is handed to the neural network.
     """
+
+    def initialize_stats(self):
+        # input statistics for normalization
+        self.stats = {}
+        self.update_stats = {}
+        self.reset_stats = {}
+
+        # not initialized to zero for graceful error handling
+        self.stats['N'] = tf.Variable(1., trainable=False)
+
+        self.stats['Sx'] = tf.Variable(
+            tf.zeros([1, self.image_height, self.image_width,
+                      self.image_channels]),
+            trainable=False)
+
+        self.stats['Sxx'] = tf.Variable(
+            tf.ones([1, self.image_height, self.image_width,
+                     self.image_channels]),
+            trainable=False)
+
+        self.update_stats['N'] = tf.assign_add(self.stats['N'], self.batchsize)
+        self.update_stats['Sx'] = tf.assign_add(
+            self.stats['Sx'], tf.expand_dims(
+                tf.reduce_sum(
+                    tf.cast(self.input_module.outputs[0], tf.float32),
+                    axis=0), 0))
+        self.update_stats['Sxx'] = tf.assign_add(
+            self.stats['Sxx'], tf.expand_dims(
+                tf.reduce_sum(tf.square(
+                    tf.cast(self.input_module.outputs[0], tf.float32)),
+                    axis=0), 0))
+
+        self.reset_stats['N'] = tf.assign(self.stats['N'], 0)
+
+        self.reset_stats['Sx'] = tf.assign(
+            self.stats['Sx'],
+            tf.zeros([1, self.image_height, self.image_width,
+                     self.image_channels]))
+
+        self.reset_stats['Sxx'] = tf.assign(
+            self.stats['Sxx'],
+            tf.zeros([1, self.image_height, self.image_width,
+                     self.image_channels]))
+
+        pass
+
+    def gather_statistics(self, session, iterator, filenames, is_training,
+                          show_average_image=False):
+        initialize_stats(self)
+        session.run(iterator.initializer, feed_dict={filenames: filenames})
+        print(" " * 80 + "\r" + "[Statistics]\tstarted", end="\r")
+        session.run([self.reset_stats['N'],
+                    self.reset_stats['Sx'], self.reset_stats['Sxx']])
+        while True:
+            try:
+                N, Sx, Sxx = session.run(
+                    [self.update_stats['N'], self.update_stats['Sx'],
+                        self.update_stats['Sxx']],
+                    feed_dict={is_training.placeholder: False,
+                               keep_prob.placeholder: 1.0})
+            except (tf.errors.OutOfRangeError):
+                session.run([tf.assign(
+                    self.layers['inp_norm'].n, self.stats['N']),
+                    tf.assign(self.layers['inp_norm'].sx,
+                              self.stats['Sx']),
+                    tf.assign(self.layers['inp_norm'].sxx,
+                              self.stats['Sxx'])])
+                if show_average_image:
+                    import matplotlib.pyplot as plt
+                    a = session.run(self.layers['inp_norm'].outputs[0],
+                                    feed_dict={is_training.placeholder: False,
+                                    keep_prob.placeholder: 1.0})
+                    for i in range(10):
+                        plt.imshow(a[i, :, :, 0])
+                        plt.show()
+                break
+            pass
+
     def define_inner_modules(self, name, inp_min, inp_max, cropped_bool,
                              augmented_bool, norm_by_stat_bool,
-                             image_height, image_width, is_training):
+                             image_height, image_width, image_channels,
+                             batchsize, is_training):
+
+        self.image_height = image_height
+        self.image_width = image_width
+        self.image_channels = image_channels
+        self.batchsize = batchsize
+
         # create all modules of the network
         # -----
 
@@ -85,14 +170,15 @@ class PreprocessorNetwork(bb.ComposedModule):
             else:
                 pass
 
-        with tf.name_scope('input_normalization'):
-            self.layers["inp_norm"] = bb.NormalizationModule(
-                "inp_norm", inp_max, inp_min)
-        # with tf.name_scope('pixel_wise_normalization'):
-        #     self.layers["pw_norm"] = bb.PixelwiseNormalizationModule(
-        #         "inp_norm")
-        # TODO: integrate the normalization by input statistics
-        # connect all modules of the network in a meaningful way
+        if norm_by_stat_bool:
+            with tf.name_scope('pixel_wise_normalization'):
+                self.layers["inp_norm"] = bb.PixelwiseNormalizationModule(
+                    "inp_norm", [1, image_height, image_width, image_channels])
+        else:
+            with tf.name_scope('input_normalization'):
+                self.layers["inp_norm"] = bb.NormalizationModule(
+                    "inp_norm", inp_max, inp_min)
+        #    connect all modules of the network in a meaningful way
         # -----
 
         with tf.name_scope('wiring_of_modules'):
@@ -110,8 +196,57 @@ class PreprocessorNetwork(bb.ComposedModule):
             self.input_module = self.layers["pass_through"]
             self.output_module = self.layers["inp_norm"]
 
+
 # TODO: Overwrite init function to have variables for the input Statistics
 # TODO: Write Method that calcs those statistics given a session and filenames
+
+# code from main engine:
+#
+#
+# #input statistics for normalization
+# self.stats = {}
+# self.update_stats = {}
+# self.reset_stats = {}
+#
+# # not initialized to zero for graceful error handling
+# self.stats['N'] = tf.Variable(1., trainable=False)
+# self.stats['Sx'] = tf.Variable(tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]), trainable=False)
+# self.stats['Sxx'] = tf.Variable(tf.ones([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]), trainable=False)
+#
+# self.update_stats['N'] = tf.assign_add(self.stats['N'], BATCH_SIZE)
+# self.update_stats['Sx'] = tf.assign_add(self.stats['Sx'], tf.expand_dims(tf.reduce_sum(tf.cast(inp.variable, tf.float32), axis=0), 0))
+# self.update_stats['Sxx'] = tf.assign_add(self.stats['Sxx'], tf.expand_dims(tf.reduce_sum(tf.square(tf.cast(inp.variable, tf.float32)), axis=0), 0))
+#
+# self.reset_stats['N'] = tf.assign(self.stats['N'], 0)
+# self.reset_stats['Sx'] = tf.assign(self.stats['Sx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
+# self.reset_stats['Sxx'] = tf.assign(self.stats['Sxx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
+# ----
+#
+#
+# def gather_input_stats(flnames=training_filenames):
+#     sess.run(iterator.initializer, feed_dict={filenames: flnames})
+#     print(" " * 80 + "\r" + "[Statistics]\tstarted", end="\r")
+#     sess.run([self.reset_stats['N'],
+#               self.reset_stats['Sx'], self.reset_stats['Sxx']])
+#     while True:
+#         try:
+#             N, Sx, Sxx = sess.run([self.update_stats['N'], self.update_stats['Sx'], self.update_stats['Sxx']], feed_dict={
+#                                   is_training.placeholder: False, keep_prob.placeholder: 1.0})
+#         except (tf.errors.OutOfRangeError):
+#             sess.run([tf.assign(network.layers['pw_norm'].n, self.stats['N']),
+#                       tf.assign(
+#                           network.layers['pw_norm'].sx, self.stats['Sx']),
+#                       tf.assign(network.layers['pw_norm'].sxx, self.stats['Sxx'])])
+#             # import matplotlib.pyplot as plt
+#             # a = sess.run(network.layers['pw_norm'].outputs[0], feed_dict = {is_training.placeholder:False, keep_prob.placeholder: 1.0})
+#             # for i in range(50):
+#             #   #plt.imshow(batch[0][i,:,:,0])
+#             #   plt.imshow(a[i,:,:,0])
+#             #   plt.show()
+#             break
+#         pass
+
+
 # _____________________________________________________________________________
 
 
