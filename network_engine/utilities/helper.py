@@ -50,10 +50,194 @@ import csv
 import os
 import errno
 import utilities.tfrecord_handler as tfrecord_handler
+import utilities.tfevent_handler as tfevent_handler
+from utilities.visualizer import put_kernels_on_grid, put_activations_on_grid
 from utilities.networks.buildingblocks import softmax_cross_entropy, \
     sigmoid_cross_entropy
 # helper functions
 # -----
+
+
+def compile_list_of_additional_summaries(network, time_depth,
+                                         time_depth_beyond):
+    add = []
+    with tf.name_scope('histograms'):
+        list_of_weights = network.get_all_weights()
+        list_of_biases = network.get_all_biases()
+
+        for kernel in list_of_weights:
+            kname = kernel.name.split('/')[1].split('_')[0] + '_weights'
+            add.append(tf.summary.histogram(kname, kernel))
+
+    # with tf.name_scope('extras'):
+    #     # this is the space to look at some interesting things that are not
+    #     # necessarily defined in every network and accessible
+    #
+    #     add.append(tf.summary.histogram(
+    #         'conv0_pre_activations_{}'.format(time_depth),
+    #         network.layers["conv0"].preactivation.outputs[time_depth]))
+    #     add.append(tf.summary.histogram(
+    #         'conv0_activations_{}'.format(time_depth),
+    #         network.layers["conv0"].outputs[time_depth]))
+    #     add.append(tf.summary.histogram(
+    #         'conv1_pre_activations_{}'.format(time_depth),
+    #         network.layers["conv1"].preactivation.outputs[time_depth]))
+    #     add.append(tf.summary.histogram(
+    #         'conv1_activations_{}'.format(time_depth),
+    #         network.layers["conv1"].outputs[time_depth]))
+    #     add.append(tf.summary.histogram(
+    #         'fc0_pre_activations_{}'.format(time_depth),
+    #         network.layers["fc0"].preactivation.outputs[time_depth]))
+    #
+    #     # gets you information for every time-step and more information
+    #     add += tfevent_handler.module_variable_summary(
+    #         network.layers["conv0"].preactivation)
+    #     add += tfevent_handler.module_variable_summary(
+    #         network.layers["conv0"])
+    #     add += tfevent_handler.module_variable_summary(
+    #         network.layers["conv0"].preactivation)
+    #     add += tfevent_handler.module_variable_summary(
+    #         network.layers["conv0"])
+    #     add += tfevent_handler.module_variable_summary(
+    #         network.layers["fc0"])
+    #
+    #     with tf.name_scope('accuracy_and_error'):
+    #         add += tfevent_handler.module_timedifference_summary(
+    #             error, time_depth + time_depth_beyond)
+    #         add += tfevent_handler.module_timedifference_summary(
+    #             accuracy, time_depth + time_depth_beyond)
+    #         add += tfevent_handler.module_timedifference_summary(
+    #             network.layers["fc0"], time_depth)
+    #         add += tfevent_handler.module_timedifference_summary(
+    #             network.layers["conv0"], time_depth)
+    #         add += tfevent_handler.module_timedifference_summary(
+    #             network.layers["conv1"], time_depth)
+    #
+    #     with tf.name_scope('accuracy_and_error_beyond'):
+    #         add += tfevent_handler.module_scalar_summary(error)
+    #         add += tfevent_handler.module_scalar_summary(accuracy)
+    #         add += tfevent_handler.module_scalar_summary(partial_accuracy)
+
+    return add
+
+
+def compile_list_of_image_summaries(network, stereo):
+
+    image = []
+
+    list_of_weights = network.get_all_weights()
+
+    for kernel in list_of_weights:
+        kname = kernel.name.split('/')[1].split('_')[0] + '/kernels'
+        receptive_pixels = kernel.shape[0].value
+        if 'fc' in kname:
+            pass
+        elif 'conv0' in kname:
+            if stereo:
+                image.append(
+                    tf.summary.image(kname, put_kernels_on_grid(
+                        kname, tf.reshape(kernel,
+                                          [2 * receptive_pixels,
+                                              receptive_pixels, -1,
+                                              network.
+                                              net_params
+                                              ['conv_filter_shapes'][0][-1]])),
+                                     max_outputs=1))
+            else:
+                image.append(
+                    tf.summary.image(kname, put_kernels_on_grid(
+                        kname, kernel),
+                        max_outputs=1))
+
+        else:
+            image.append(
+                tf.summary.image(kname, put_kernels_on_grid(
+                    kname, tf.reshape(
+                        kernel, [receptive_pixels, receptive_pixels,
+                                 1, -1])), max_outputs=1))
+
+    return image
+
+
+def compile_list_of_train_summaries(network, accuracy, partial_accuracy, error,
+                                    label_type, time_depth):
+    train = []
+
+    with tf.name_scope('accuracy_and_error'):
+        train.append(tf.summary.scalar(
+            error.name + "_{}".format(time_depth), error.outputs[time_depth]))
+        train.append(tf.summary.scalar(
+            accuracy.name + "_{}".format(time_depth),
+            accuracy.outputs[time_depth]))
+        if label_type == 'nhot':
+            train.append(tf.summary.scalar(
+                partial_accuracy.name + "_{}".format(time_depth),
+                partial_accuracy.outputs[time_depth]))
+
+    with tf.name_scope('weights_and_biases'):
+        list_of_weights = network.get_all_weights()
+        list_of_biases = network.get_all_biases()
+
+        for kernel in list_of_weights:
+            kname = kernel.name.split('/')[1].split('_')[0] + '_weights'
+            train += tfevent_handler.variable_summaries(
+                kernel, kname, weights=True)
+
+        for bias in list_of_biases:
+            bname = bias.name.split('/')[1].split('_')[0] + '_bias'
+            train += tfevent_handler.variable_summaries(
+                bias, bname)
+
+    return train
+
+
+def compile_list_of_test_summaries(testavg, label_type, time_depth,
+                                   time_depth_beyond):
+    test = []
+    # TODO: try to write test and train to the same window
+    with tf.name_scope('testtime'):
+        test.append(tf.summary.scalar(
+            'avg_loss', testavg.average_cross_entropy[time_depth]))
+        test.append(tf.summary.scalar(
+            'avg_accuracy', testavg.average_accuracy[time_depth]))
+        if label_type == 'nhot':
+            test.append(tf.summary.scalar(
+                'avg_partial_accuracy',
+                testavg.average_partial_accuracy[time_depth]))
+
+    with tf.name_scope('test_time_beyond'):
+        # there must be a way without getting accuracy into this function
+        for time in range(0, time_depth + time_depth_beyond + 1):
+            test.append(tf.summary.scalar(
+                'avg_loss' + "_{}".format(time),
+                testavg.average_cross_entropy[time]))
+            test.append(tf.summary.scalar(
+                'avg_accuracy' + "_{}".format(time),
+                testavg.average_accuracy[time]))
+            if label_type == 'nhot':
+                test.append(tf.summary.scalar(
+                    'avg_partial_accuracy' + "_{}".format(time),
+                    testavg.average_partial_accuracy[time]))
+
+    return test
+
+
+def get_and_merge_summaries(network, testavg, accuracy, partial_accuracy,
+                            error, label_type, time_depth,
+                            time_depth_beyond, stereo):
+
+    test = compile_list_of_test_summaries(
+        testavg, label_type, time_depth, time_depth_beyond)
+    train = compile_list_of_train_summaries(
+        network, accuracy, partial_accuracy, error,
+        label_type, time_depth)
+    image = compile_list_of_image_summaries(
+        network, stereo)
+    add = compile_list_of_additional_summaries(
+        network, time_depth, time_depth_beyond)
+
+    return tf.summary.merge(test), tf.summary.merge(train),\
+        tf.summary.merge(image), tf.summary.merge(add)
 
 
 def get_output_directory(configuration_dict, flags):
