@@ -73,6 +73,33 @@ import utilities.networks.buildingblocks as bb
 import utilities.networks.preprocessor as preprocessor
 
 
+# commandline arguments
+# -----
+
+# FLAGS
+
+
+tf.app.flags.DEFINE_boolean('testrun', False,
+                            'simple configuration on local machine to test')
+tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' +
+                           'saturn/experiments/001_noname_experiment/' +
+                           'files/config_files/config0.csv',
+                           'path to the configuration file of the experiment')
+tf.app.flags.DEFINE_string('name', '',
+                           'name of the run, i.e. iteration1')
+tf.app.flags.DEFINE_boolean('restore_ckpt', True,
+                            'restore model from last checkpoint')
+tf.app.flags.DEFINE_boolean('evaluate_ckpt', False,
+                            'load model and evaluate')
+
+
+FLAGS = tf.app.flags.FLAGS
+
+CONFIG = helper.infer_additional_parameters(
+    helper.read_config_file(FLAGS.config_file)
+)
+
+
 # TODO: Write docstring for LearningRate
 class LearningRate(object):
     """
@@ -92,14 +119,14 @@ class LearningRate(object):
         self.d = tf.Variable(d, trainable=False,
                              name='learning_rate_d')
 
-        self.divide_by_10 = tf.assign(self.rate, self.rate / 10,
-                                      name='divide_by_10')
+        self.divide_by_10 = tf.compat.v1.assign(self.rate, self.rate / 10,
+                                                name='divide_by_10')
 
         # TODO: initial learning rate should be specified in the setup
-        self.decay_by_epoch = tf.assign(self.rate, self.eta * self.delta **
-                                        (tf.cast(global_epoch_variable,
-                                                 tf.float32) /
-                                            self.d), name='decay_by_epoch')
+        self.decay_by_epoch = tf.compat.v1.assign(
+            self.rate, self.eta * self.delta **
+            (tf.cast(global_epoch_variable, tf.float32) /
+                self.d), name='decay_by_epoch')
 
 
 class EmbeddingObject(object):
@@ -121,34 +148,34 @@ class EmbeddingObject(object):
 
         # these shapes are set to cover the standard networks
         # change for different embedding visualization
-        self.embedding_labels = tf.Variable(tf.zeros(
+        self.labels = tf.Variable(tf.zeros(
             shape=0, dtype=tf.int64), validate_shape=False,
             name="preclass_labels", trainable=False)
 
-        self.embedding_thumbnails = tf.Variable(tf.zeros(
+        self.thumbnails = tf.Variable(tf.zeros(
             shape=[0, self.thu_height, self.thu_height, image_channels],
             dtype=tf.int16), validate_shape=False,
             name="embedding_thumbnails", trainable=False)
 
-        update_embedding_labels = tf.assign(self.embedding_labels, tf.concat(
-            [self.embedding_labels, tf.argmax(labels.variable, axis=-1)],
+        update_embedding_labels = tf.compat.v1.assign(self.labels, tf.concat(
+            [self.labels, tf.argmax(labels.variable, axis=-1)],
             axis=0), validate_shape=False)
 
-        update_embedding_thumbnails = tf.assign(
-            self.embedding_thumbnails, tf.concat(
-                [self.embedding_thumbnails, tf.cast(
-                    tf.image.resize_image_with_crop_or_pad(
-                        tf.image.resize_images(
+        update_embedding_thumbnails = tf.compat.v1.assign(
+            self.thumbnails, tf.concat(
+                [self.thumbnails, tf.cast(
+                    tf.image.resize_with_crop_or_pad(
+                        tf.image.resize(
                             inp.variable, [self.thu_height, self.thu_width]),
                         self.thu_height, self.thu_height), dtype=tf.int16)],
                 axis=0), validate_shape=False)
 
-        reset_embedding_labels = tf.assign(self.embedding_labels, tf.zeros(
+        reset_embedding_labels = tf.compat.v1.assign(self.labels, tf.zeros(
             shape=0, dtype=tf.int64),
             validate_shape=False)
 
-        reset_embedding_thumbnails = tf.assign(
-            self.embedding_thumbnails, tf.zeros(
+        reset_embedding_thumbnails = tf.compat.v1.assign(
+            self.thumbnails, tf.zeros(
                 shape=[0, self.thu_height, self.thu_height, image_channels],
                 dtype=tf.int16),
             validate_shape=False)
@@ -163,7 +190,7 @@ class EmbeddingObject(object):
                     dtype=tf.float32), validate_shape=False,
                 name="preclass_{}".format(time), trainable=False)
 
-            update_embedding_preclass[time] = tf.assign(
+            update_embedding_preclass[time] = tf.compat.v1.assign(
                 self.total[time],
                 tf.concat([self.total[time],
                            tf.reshape(network.layers["dropoutc{}".format(
@@ -171,7 +198,7 @@ class EmbeddingObject(object):
                     (batchsize, -1))], axis=0),
                 validate_shape=False)
 
-            reset_embedding_preclass[time] = tf.assign(
+            reset_embedding_preclass[time] = tf.compat.v1.assign(
                 self.total[time],
                 tf.zeros(shape=[0, int(np.prod(np.array(
                     network.net_params['bias_shapes'][1]) /
@@ -197,12 +224,12 @@ class TestAccuracy(object):
     def __init__(self, accuracy, error, label_type, partial_accuracy):
         super(TestAccuracy, self).__init__()
 
-        count = tf.Variable(0., trainable=False)
-        update_count = tf.assign_add(count, 1.)
-        reset_count = tf.assign(count, 0.)
+        self.count = tf.Variable(0., trainable=False)
+        update_count = tf.compat.v1.assign_add(self.count, 1.)
+        reset_count = tf.compat.v1.assign(self.count, 0.)
 
         total_test_accuracy = {}
-        total_test_loss = {}
+        self.total_test_loss = {}
 
         update_total_test_accuracy = {}
         update_total_test_loss = {}
@@ -215,20 +242,23 @@ class TestAccuracy(object):
 
         for time in accuracy.outputs:
             total_test_accuracy[time] = tf.Variable(0., trainable=False)
-            total_test_loss[time] = tf.Variable(0., trainable=False)
+            self.total_test_loss[time] = tf.Variable(0., trainable=False)
 
-            update_total_test_accuracy[time] = tf.assign_add(
+            update_total_test_accuracy[time] = tf.compat.v1.assign_add(
                 total_test_accuracy[time], accuracy.outputs[time])
-            update_total_test_loss[time] = tf.assign_add(
-                total_test_loss[time], error.outputs[time])
 
-            reset_total_test_loss[time] = tf.assign(
-                total_test_loss[time], 0.)
-            reset_total_test_accuracy[time] = tf.assign(
+            update_total_test_loss[time] = tf.compat.v1.assign_add(
+                self.total_test_loss[time], error.outputs[time])
+
+            reset_total_test_loss[time] = tf.compat.v1.assign(
+                self.total_test_loss[time], 0.)
+            reset_total_test_accuracy[time] = tf.compat.v1.assign(
                 total_test_accuracy[time], 0.)
 
-            self.average_accuracy[time] = total_test_accuracy[time] / count
-            self.average_cross_entropy[time] = total_test_loss[time] / count
+            self.average_accuracy[time] = \
+                total_test_accuracy[time] / self.count
+            self.average_cross_entropy[time] = \
+                self.total_test_loss[time] / self.count
 
         update_accloss = tf.stack(
             (list(update_total_test_loss.values()) + list(
@@ -236,9 +266,6 @@ class TestAccuracy(object):
         reset_accloss = tf.stack(
             (list(reset_total_test_accuracy.values()) + list(
                 reset_total_test_loss.values())))
-
-        self.update = tf.group(update_accloss, update_count)
-        self.reset = tf.group(reset_accloss, reset_count)
 
         if label_type == 'nhot':
             total_test_partial_accuracy = {}
@@ -250,13 +277,14 @@ class TestAccuracy(object):
             for time in partial_accuracy.outputs:
                 total_test_partial_accuracy[time] = tf.Variable(
                     0., trainable=False)
-                update_total_test_partial_accuracy[time] = tf.assign_add(
+                update_total_test_partial_accuracy[time] = \
+                    tf.compat.v1.assign_add(
                     total_test_partial_accuracy[time],
                     partial_accuracy.outputs[time])
-                reset_total_test_partial_accuracy[time] = tf.assign(
+                reset_total_test_partial_accuracy[time] = tf.compat.v1.assign(
                     total_test_partial_accuracy[time], 0.)
                 self.average_partial_accuracy[time] = \
-                    total_test_partial_accuracy[time] / count
+                    total_test_partial_accuracy[time] / self.count
 
             update_accloss = tf.stack((list(update_total_test_loss.values(
             )) + list(update_total_test_accuracy.values()) +
@@ -265,8 +293,8 @@ class TestAccuracy(object):
             )) + list(reset_total_test_loss.values()) +
                 list(reset_total_test_partial_accuracy.values())))
 
-            self.update = tf.group(update_accloss, update_count)
-            self.reset = tf.group(reset_accloss, reset_count)
+        self.update = tf.group(update_accloss, update_count)
+        self.reset = tf.group(reset_accloss, reset_count)
 
 
 class ConfusionMatrix(object):
@@ -282,43 +310,17 @@ class ConfusionMatrix(object):
             tf.zeros([classes, classes]),
             name="confusion_matrix", trainable=False)
 
-        update_confusion_matrix = tf.assign_add(
+        update_confusion_matrix = tf.compat.v1.assign_add(
             self.total, tf.matmul(tf.transpose(
                 tf.one_hot(tf.argmax(
                     network.outputs[time_depth], 1), classes)),
                 labels.outputs[time_depth]))
 
-        reset_confusion_matrix = tf.assign(
+        reset_confusion_matrix = tf.compat.v1.assign(
             self.total, tf.zeros([classes, classes]))
 
         self.update = tf.group(update_confusion_matrix)
         self.reset = tf.group(reset_confusion_matrix)
-
-
-# commandline arguments
-# -----
-
-# FLAGS
-
-
-tf.app.flags.DEFINE_boolean('testrun', False,
-                            'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' +
-                           'saturn/experiments/001_noname_experiment/' +
-                           'files/config_files/config0.csv',
-                           'path to the configuration file of the experiment')
-tf.app.flags.DEFINE_string('name', '',
-                           'name of the run, i.e. iteration1')
-tf.app.flags.DEFINE_boolean('restore_ckpt', True,
-                            'restore model from last checkpoint')
-tf.app.flags.DEFINE_boolean('evaluate_ckpt', False,
-                            'load model and evaluate')
-
-
-FLAGS = tf.app.flags.FLAGS
-CONFIG = helper.infer_additional_parameters(
-    helper.read_config_file(FLAGS.config_file)
-)
 
 
 # constants
@@ -341,10 +343,12 @@ circuit = importlib.import_module(CONFIG['network_module'])
 inp = bb.NontrainableVariableModule("input", (CONFIG['batchsize'],
                                               CONFIG['image_height'],
                                               CONFIG['image_width'],
-                                              CONFIG['image_channels']), dtype='uint8')
+                                              CONFIG['image_channels']),
+                                    dtype='float32')
 
 labels = bb.NontrainableVariableModule("input_labels", (CONFIG['batchsize'],
-                                                        CONFIG['classes']), dtype=DTYPE)
+                                                        CONFIG['classes']),
+                                       dtype=DTYPE)
 
 keep_prob = bb.PlaceholderModule(
     "keep_prob", shape=(), dtype=DTYPE)
@@ -355,11 +359,11 @@ is_training = bb.PlaceholderModule(
 # TODO: This could be one class that can be incremented and maybe even account
 # for batch accuracy.
 global_step = tf.Variable(0, trainable=False, name='global_step')
-increment_global_step = tf.assign_add(
+increment_global_step = tf.compat.v1.assign_add(
     global_step, 1, name='increment_global_step')
 
 global_epoch = tf.Variable(0, trainable=False, name='global_epoch')
-increment_global_epoch = tf.assign_add(
+increment_global_epoch = tf.compat.v1.assign_add(
     global_epoch, 1, name='increment_global_epoch')
 
 lrate = LearningRate(CONFIG['learning_rate'],
@@ -394,7 +398,7 @@ training_filenames, validation_filenames, test_filenames,\
 
 
 # parse data from tf-record files
-filenames = tf.placeholder(tf.string, shape=[None])
+filenames = tf.compat.v1.placeholder(tf.string, shape=[None])
 dataset = tf.data.TFRecordDataset(filenames)
 dataset = dataset.map(PARSER)
 
@@ -404,8 +408,10 @@ if FLAGS.testrun:
 if not(FLAGS.evaluate_ckpt):
     dataset = dataset.shuffle(buffer_size=CONFIG['buffer_size'])
 
-dataset = dataset.apply(
-    tf.contrib.data.batch_and_drop_remainder(CONFIG['batchsize']))
+# dataset = dataset.apply(
+#     tf.contrib.data.batch_and_drop_remainder(CONFIG['batchsize']))
+
+dataset = dataset.batch(CONFIG['batchsize'], drop_remainder=True)
 iterator = dataset.make_initializable_iterator()
 next_batch = iterator.get_next()
 
@@ -413,7 +419,7 @@ inp_left = next_batch[0]
 inp_right = next_batch[1]
 
 # preliminary support for grayscale within training
-if CONFIG['color'] == 'grayscale':
+if CONFIG['color'] == 'grayscale' and not('mnist' in CONFIG['dataset']):
     inp_left = tf.image.rgb_to_grayscale(inp_left)
     inp_right = tf.image.rgb_to_grayscale(inp_right)
 
@@ -465,7 +471,8 @@ network = circuit.constructor("rcnn",
 
 one_time_error = bb.ErrorModule("cross_entropy", CONFIG['crossentropy_fn'])
 error = bb.TimeAddModule("add_error")
-optimizer = bb.OptimizerModule("adam", tf.train.AdamOptimizer(lrate.rate))
+optimizer = bb.OptimizerModule("adam",
+                               tf.compat.v1.train.AdamOptimizer(lrate.rate))
 accuracy = bb.BatchAccuracyModule("accuracy")
 
 network.add_input(inp_prep)
@@ -586,60 +593,72 @@ test_merged, train_merged, image_merged, add_merged = \
 # start session, merge summaries, start writers
 # -----
 
-with tf.Session() as sess:
+with tf.compat.v1.Session() as sess:
 
-    train_writer = tf.summary.FileWriter(
+    train_writer = tf.compat.v1.summary.FileWriter(
         WRITER_DIRECTORY + '/training', sess.graph)
-    test_writer = tf.summary.FileWriter(
+    test_writer = tf.compat.v1.summary.FileWriter(
         WRITER_DIRECTORY + '/training')
-    add_writer = tf.summary.FileWriter(
+    add_writer = tf.compat.v1.summary.FileWriter(
         WRITER_DIRECTORY + '/training/extra')
-    image_writer = tf.summary.FileWriter(
+    image_writer = tf.compat.v1.summary.FileWriter(
         WRITER_DIRECTORY + '/training/images')
 
     if FLAGS.testrun:
         # debug writer for metadata etc.
-        debug_writer = tf.summary.FileWriter(
+        debug_writer = tf.compat.v1.summary.FileWriter(
             WRITER_DIRECTORY + '/debug', sess.graph)
         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
 
-    saver = tf.train.Saver(keep_checkpoint_every_n_hours=1, max_to_keep=2)
-    sess.run(tf.global_variables_initializer())
+    saver = tf.compat.v1.train.Saver(
+        keep_checkpoint_every_n_hours=1, max_to_keep=2)
+    sess.run(tf.compat.v1.global_variables_initializer())
 
     # training and testing functions
     # -----
 
     def testing(train_it, flnames=validation_filenames, tag='Validation'):
-        print(" " * 80 + "\r" + "[Validation]\tstarted", end="\r")
-        sess.run([iterator.initializer, reset], feed_dict={filenames: flnames})
+        print(" " * 80 + "\r" + "[{}]\tstarted".format(tag), end="\r")
+        sess.run(iterator.initializer, feed_dict={filenames: flnames})
+        sess.run([testaverages.reset, confusion_matrix.reset])
         while True:
             try:
-                _, extras, images, pic, cam = sess.run([update, add_merged, image_merged, inp.outputs[TIME_DEPTH], class_activation_map_resized], feed_dict={
-                                                           keep_prob.placeholder: 1.0, is_training.placeholder: False})
-            except (tf.errors.OutOfRangeError):
+                _, _, extras, images = sess.run(
+                    [testaverages.update, confusion_matrix.update,
+
+                        add_merged, image_merged],
+                    feed_dict={keep_prob.placeholder: 1.0,
+                               is_training.placeholder: False})
+
+            except(tf.errors.OutOfRangeError):
                 break
+
         acc, loss, summary = sess.run(
-            [average_accuracy[TIME_DEPTH], average_cross_entropy[TIME_DEPTH], test_merged])
+            [testaverages.average_accuracy[CONFIG['time_depth']],
+             testaverages.average_cross_entropy[CONFIG['time_depth']],
+             test_merged])
         print(" " * 80 + "\r" +
-              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}".format(tag, loss, acc, train_it))
+              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
+              .format(tag, loss, acc, train_it))
+
         if not(FLAGS.restore_ckpt):
             test_writer.add_summary(summary, train_it)
-            if FLAGS.visualization:
+
+            if CONFIG['visualization']:
                 add_writer.add_summary(extras, train_it)
                 image_writer.add_summary(images, train_it)
 
                 # pass additional confusion matrix to image_writer
-                cm_figure = cm_to_figure(
-                    total_confusion_matrix.eval(), encoding)
-                image_writer.add_summary(tfplot.figure.to_summary(cm_figure,
-                                                                  tag="dev/confusionmatrix"), train_it)
+                cm_figure = visualizer.cm_to_figure(
+                    confusion_matrix.total.eval(), CONFIG['class_encoding'])
+                image_writer.add_summary(
+                    tfplot.figure.to_summary(
+                        cm_figure, tag="confusionmatrix"), train_it)
 
-            # pass additional class activation maps of the last batch to image_writer
-            if FLAGS.classactivation:
-                cam_figure = cam_to_figure(cam, pic)
-                image_writer.add_summary(tfplot.figure.to_summary(
-                    cam_figure, tag="dev/saliencymap"), train_it)
+                # helper.print_misclassified_objects(
+                #     confusion_matrix.total.eval(),
+                #     CONFIG['class_encoding'], 5)
 
         FLAGS.restore_ckpt = False
         return 0
@@ -649,47 +668,65 @@ with tf.Session() as sess:
                  filenames: training_filenames})
         while True:
             try:
-                summary, extras, loss, acc = sess.run([train_merged, add_merged, optimizer.outputs[TIME_DEPTH], accuracy.outputs[TIME_DEPTH]], feed_dict={
-                                                          keep_prob.placeholder: FLAGS.keep_prob, is_training.placeholder: True})
-                if (train_it % FLAGS.writeevery == 0):
+                summary, extras, loss, acc = sess.run(
+                    [train_merged, add_merged,
+                        optimizer.outputs[CONFIG['time_depth']],
+                        accuracy.outputs[CONFIG['time_depth']]],
+                    feed_dict={keep_prob.placeholder: CONFIG['keep_prob'],
+                               is_training.placeholder: True})
+
+                if (train_it % CONFIG['write_every'] == 0):
                     train_writer.add_summary(summary, train_it)
-                if FLAGS.verbose:
-                    print(" " * 80 + "\r" + "[Training]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}".format(
-                        loss, acc, train_it), end="\r")
+                if CONFIG['verbose']:
+                    print(" " * 80 + "\r" +
+                          "[Training]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
+                          .format(loss, acc, train_it), end="\r")
                 train_it = increment_global_step.eval()
 
             except (tf.errors.OutOfRangeError):
                 _ = increment_global_epoch.eval()
-                if FLAGS.decaying_lrate:
-                    _ = update_lrate.eval()
-                    print(
-                        " " * 80 + "\r" + "[INFO] Learningrate updated to {:.5f}".format(lrate.eval()))
+                if CONFIG['decaying_lrate']:
+                    _ = lrate.decay_by_epoch.eval()
+                    print(" " * 80 +
+                          "\r" + "[INFO] Learningrate updated to {:.5f}"
+                          .format(lrate.rate.eval()))
                 break
+
         return train_it
 
-    def evaluation(train_it, flnames=eval_filenames, tag='Evaluation'):
-        print(" " * 80 + "\r" + "[Validation]\tstarted", end="\r")
-        sess.run([iterator.initializer, reset, reset_emb],
+    def evaluation(train_it, flnames=evaluation_filenames, tag='Evaluation'):
+        print(" " * 80 + "\r" + "[{}}]\tstarted".format(tag), end="\r")
+        sess.run([iterator.initializer, testaverages.reset, embedding.reset],
                  feed_dict={filenames: flnames})
 
+        # TODO: this should be part of the afterburner, saved to python native
+        # get the full output distribution, rewrite the evaluation function
+        # all of this including the tsne is afterburner stuff
         list_of_output_samples = []
         list_of_output_times = []
         for time in network.outputs:
             list_of_output_times.append(tf.nn.softmax(network.outputs[time]))
 
         # delete bool_classification file if it already exists
-        if os.path.exists(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' + "bool_classification.txt"):
+
+        if os.path.exists(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
+                          "bool_classification.txt"):
+
             os.remove(WRITER_DIRECTORY + 'checkpoints/' +
                       'evaluation/' + "bool_classification.txt")
         while True:
             try:
-                _, _, extras, images, bc, out = sess.run([update, update_emb, add_merged, image_merged, bool_classification, list_of_output_times], feed_dict={
-                                                             keep_prob.placeholder: 1.0, is_training.placeholder: False})
+                _, _, extras, images, bc, out = sess.run(
+                    [update, update_emb, add_merged, image_merged,
+                        bool_classification, list_of_output_times],
+                    feed_dict={keep_prob.placeholder: 1.0,
+                               is_training.placeholder: False})
 
                 # save output of boolean comparison
                 boolfile = open(WRITER_DIRECTORY + 'checkpoints/' +
                                 'evaluation/' + "bool_classification.txt", "a")
-                if FLAGS.label_type == "onehot":
+
+                if CONFIG['label_type'] == "onehot":
                     for i in list(bc):
                         boolfile.write(str(int(i)) + '\n')
                 else:
@@ -705,19 +742,32 @@ with tf.Session() as sess:
 
             except (tf.errors.OutOfRangeError):
                 break
-        if FLAGS.label_type == 'nhot':
+
+        if CONFIG['label_type'] == 'nhot':
             acc, loss, emb, emb_labels, emb_thu, summary = sess.run(
-                [average_partial_accuracy[TIME_DEPTH], average_cross_entropy[TIME_DEPTH], total_embedding_preclass, embedding_labels, embedding_thumbnails, test_merged])
+                [testaverages.average_partial_accuracy[CONFIG['time_depth']],
+                    testaverages.average_cross_entropy[CONFIG['time_depth']],
+                    embedding.total,
+                    embedding.labels,
+                    embedding.thumbnails,
+                    test_merged])
         else:
             acc, loss, emb, emb_labels, emb_thu, summary = sess.run(
-                [average_accuracy[TIME_DEPTH], average_cross_entropy[TIME_DEPTH], total_embedding_preclass, embedding_labels, embedding_thumbnails, test_merged])
-        print(" " * 80 + "\r" +
-              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}".format(tag, loss, acc, train_it))
+                [testaverages.average_accuracy[CONFIG['time_depth']],
+                    testaverages.average_cross_entropy[CONFIG['time_depth']],
+                    embedding.total,
+                    embedding.labels,
+                    embedding.thumbnails,
+                    test_merged])
 
-        # cm_summary = cm_to_tfsummary(total_confusion_matrix.eval(), encoding, tensor_name='dev/cm')
-        # plot_confusion_matrix(cm)
+        print(" " * 80 + "\r" +
+              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
+              .format(tag, loss, acc, train_it))
+
         np.savez_compressed(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
-                            'softmax_output.npz', np.array(list_of_output_samples))
+                            'softmax_output.npz',
+                            np.array(list_of_output_samples))
+
         # pass labels to write to metafile
         return emb, emb_labels, emb_thu
 
@@ -730,12 +780,14 @@ with tf.Session() as sess:
             saver.restore(sess, checkpoint.model_checkpoint_path)
             print('[INFO] Restored checkpoint successfully')
             # subtract epochs already done
-            N_TRAIN_EPOCH -= global_epoch.eval()
-            print('[INFO] Continue training from last checkpoint: {} epochs remaining'.format(
-                N_TRAIN_EPOCH))
+            CONFIG['epochs'] -= global_epoch.eval()
+            print('[INFO] Continue training from last checkpoint:' +
+                  ' {} epochs remaining'
+                  .format(CONFIG['epochs']))
             # sys.exit()
         else:
-            print('[INFO] No checkpoint found, starting experiment from scratch')
+            print('[INFO] No checkpoint found,' +
+                  'starting experiment from scratch')
             FLAGS.restore_ckpt = False
             # sys.exit()
 
@@ -746,49 +798,63 @@ with tf.Session() as sess:
         checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIRECTORY)
         if checkpoint and checkpoint.model_checkpoint_path:
             saver.restore(sess, checkpoint.model_checkpoint_path)
+
             # make sure the directories exist, otherwise create them
             mkdir_p(CHECKPOINT_DIRECTORY + 'evaluation/')
-            print('[INFO] Restored checkpoint successfully, running evaluation')
+            print('[INFO] Restored checkpoint successfully,' +
+                  ' running evaluation')
             emb, emb_labels, emb_thu = evaluation(
-                global_step.eval(), flnames=eval_filenames)  # test_filenames
+                global_step.eval(), flnames=evaluation_filenames)
 
+            # TODO:: Write a dedicated tsne writer function
             # visualize with tsne
-            if True:
-                saver.save(sess, WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' + FLAGS.name + FLAGS.connectivity
-                           + FLAGS.dataset, global_step=global_step.eval())
+            if False:
+                saver.save(sess, WRITER_DIRECTORY + 'checkpoints/' +
+                           'evaluation/' + CONFIG['name'] +
+                           CONFIG['connectivity'] + CONFIG['dataset'],
+                           global_step=global_step.eval())
 
-                npnames = encoding
+                npnames = CONFIG['class_encoding']
                 lookat = np.zeros(emb_labels.shape, dtype=np.int32)
                 lookat[-50:] = 1
                 emb_labels = np.asarray(emb_labels, dtype=np.int32)
 
                 # save labels to textfile to be read by tensorboard
-                np.savetxt(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' + "metadata.tsv", np.column_stack(
-                    [emb_labels, npnames[emb_labels], lookat]), header="labels\tnames\tlookat", fmt=["%s", "%s", "%s"], delimiter="\t", comments='')
+                np.savetxt(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/'
+                           + "metadata.tsv",
+                           np.column_stack([emb_labels, npnames[emb_labels],
+                                           lookat]),
+                           header="labels\tnames\tlookat",
+                           fmt=["%s", "%s", "%s"], delimiter="\t", comments='')
+
                 # save thumbnails to sprite image
-                save_sprite_image(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
-                                  'embedding_spriteimage.png', emb_thu[:, :, :, :])
+                save_sprite_image(WRITER_DIRECTORY + 'checkpoints/' +
+                                  'evaluation/' +
+                                  'embedding_spriteimage.png',
+                                  emb_thu[:, :, :, :])
 
                 # configure metadata linking
-                config = projector.ProjectorConfig()
-                embeddings = {}
+                projector_config = projector.ProjectorConfig()
+                embeddings_dict = {}
                 # try to write down everything here
                 for i in range(TIME_DEPTH + TIME_DEPTH_BEYOND + 1):
-                    embeddings[i] = config.embeddings.add()
-                    embeddings[i].tensor_name = total_embedding_preclass[i].name
-                    embeddings[i].metadata_path = os.path.join(
-                        WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/', 'metadata.tsv')
-                    embeddings[i].sprite.image_path = WRITER_DIRECTORY + \
-                        'checkpoints/' + 'evaluation/' + 'embedding_spriteimage.png'
-                    embeddings[i].sprite.single_image_dibb.extend(
-                        [THU_HEIGHT, THU_HEIGHT])
+                    embeddings_dict[i] = projector_config.embeddings_dict.add()
+                    embeddings_dict[i].tensor_name = \
+                        total_embedding_preclass[i].name
+                    embeddings_dict[i].metadata_path = os.path.join(
+                        WRITER_DIRECTORY + 'checkpoints/' +
+                        'evaluation/', 'metadata.tsv')
+                    embeddings_dict[i].sprite.image_path = WRITER_DIRECTORY + \
+                        'checkpoints/' + 'evaluation/' + \
+                        'embedding_spriteimage.png'
+                    embeddings_dict[i].sprite.single_image_dibb.extend(
+                        [embedding.thu_height, embedding.thu_height])
 
-                summary_writer = tf.summary.FileWriter(
+                tnse_writer = tf.compat.v1.summary.FileWriter(
                     WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/')
-                projector.visualize_embeddings(summary_writer, config)
+                projector.visualize_embeddings(
+                    tsne_writer, projector_config)
 
-            # plot_confusion_matrix(cm)
-            # print_misclassified_objects(cm, 5)
             sys.exit()
             print('[INFO] Continue training from last checkpoint')
         else:
@@ -800,23 +866,24 @@ with tf.Session() as sess:
 
     # prepare input normalization on preprocessor
     if CONFIG['norm_by_stat']:
-        inp_prep.gather_input_stats(sess, iterator,
-                                    training_filenames, is_training,
-                                    show_average_image=True)
+        inp_prep.gather_statistics(sess, iterator,
+                                   training_filenames, filenames, is_training,
+                                   show_image=True)
+
     train_it = global_step.eval()
-    for i_train_epoch in range(N_TRAIN_EPOCH):
-        if i_train_epoch % FLAGS.testevery == 0:
+    for i_train_epoch in range(CONFIG['epochs']):
+        if i_train_epoch % CONFIG['test_every'] == 0:
             _ = testing(train_it)
-            saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + STEREO_STRING
-                       + FLAGS.dataset_type, global_step=train_it)
+            saver.save(sess, CHECKPOINT_DIRECTORY + CONFIG['exp_name'] +
+                       FLAGS.name + CONFIG['dataset'], global_step=train_it)
         train_it = training(train_it)
 
     # final test (ideally on an independent testset)
     # -----
 
     testing(train_it, flnames=test_filenames, tag='Testing')
-    saver.save(sess, CHECKPOINT_DIRECTORY + FLAGS.name + STEREO_STRING
-               + FLAGS.dataset_type, global_step=train_it)
+    saver.save(sess, CHECKPOINT_DIRECTORY + CONFIG['exp_name'] +
+               FLAGS.name + CONFIG['dataset'], global_step=train_it)
 
     train_writer.close()
     test_writer.close()
