@@ -79,17 +79,17 @@ def tfrecord_auto_traversal(dirpath='./', shuffled=True):
     """
     current_folder_filename_list = os.listdir(dirpath)
     if current_folder_filename_list is not None:
-        print("%s files were found under current folder. " %
+        print("%s files were found under given directory. " %
               len(current_folder_filename_list))
-        print("Please be noted that only files ending with '*.tfrecord' \
-              will be loaded!")
+        print("Only files ending with '*.tfrecord'" +
+              "will be loaded!")
         tfrecord_list = list_tfrecord_file(
             current_folder_filename_list, dirpath)
         if len(tfrecord_list) != 0:
             for list_index in range(len(tfrecord_list)):
                 print(tfrecord_list[list_index])
         else:
-            print("Cannot find any tfrecord files, please check the path.")
+            print("Cannot find any tfrecord files, please check path.")
     if shuffled:
         shuffle(tfrecord_list)
     return tfrecord_list
@@ -167,23 +167,23 @@ OSYCB_ENCODING = np.array(['NULL_CLASS', '072-a_toy_airplane', '065-g_cups',
 
 def _osycb_parse_single(example_proto):
     features = {
-        "image/left/encoded": tf.FixedLenFeature([], tf.string),
-        "image/right/encoded": tf.FixedLenFeature([], tf.string),
-        "image/height": tf.FixedLenFeature([], tf.int64),
-        "image/width": tf.FixedLenFeature([], tf.int64),
-        "image/left/filename": tf.FixedLenFeature([], tf.string),
-        "image/right/filename": tf.FixedLenFeature([], tf.string),
-        "image/class/label": tf.FixedLenFeature([], tf.int64),
-        "image/class/text": tf.FixedLenFeature([], tf.string),
-        "image/class/occ1_label": tf.FixedLenFeature([], tf.int64),
-        "image/class/occ1_text": tf.FixedLenFeature([], tf.string),
-        "image/class/occ2_label": tf.FixedLenFeature([], tf.int64),
-        "image/class/occ2_text": tf.FixedLenFeature([], tf.string),
-        "image/class/occ3_label": tf.FixedLenFeature([], tf.int64),
-        "image/class/occ3_text": tf.FixedLenFeature([], tf.string),
+        "image/left/encoded": tf.io.FixedLenFeature([], tf.string),
+        "image/right/encoded": tf.io.FixedLenFeature([], tf.string),
+        "image/height": tf.io.FixedLenFeature([], tf.int64),
+        "image/width": tf.io.FixedLenFeature([], tf.int64),
+        "image/left/filename": tf.io.FixedLenFeature([], tf.string),
+        "image/right/filename": tf.io.FixedLenFeature([], tf.string),
+        "image/class/label": tf.io.FixedLenFeature([], tf.int64),
+        "image/class/text": tf.io.FixedLenFeature([], tf.string),
+        "image/class/occ1_label": tf.io.FixedLenFeature([], tf.int64),
+        "image/class/occ1_text": tf.io.FixedLenFeature([], tf.string),
+        "image/class/occ2_label": tf.io.FixedLenFeature([], tf.int64),
+        "image/class/occ2_text": tf.io.FixedLenFeature([], tf.string),
+        "image/class/occ3_label": tf.io.FixedLenFeature([], tf.int64),
+        "image/class/occ3_text": tf.io.FixedLenFeature([], tf.string),
     }
 
-    parsed_features = tf.parse_single_example(example_proto, features)
+    parsed_features = tf.io.parse_single_example(example_proto, features)
     one_hot = tf.one_hot(parsed_features["image/class/label"], 80)
 
     occ1_one_hot = tf.one_hot(parsed_features["image/class/occ1_label"], 80)
@@ -202,18 +202,18 @@ def _osycb_parse_single(example_proto):
 
 def _osdigits_parse_single(example_proto):
     features = {
-        "image/left/encoded": tf.FixedLenFeature([], tf.string),
-        "image/right/encoded": tf.FixedLenFeature([], tf.string),
-        "image/height": tf.FixedLenFeature([], tf.int64),
-        "image/width": tf.FixedLenFeature([], tf.int64),
-        "image/colorspace": tf.FixedLenFeature([], tf.string),
-        "image/channels": tf.FixedLenFeature([], tf.int64),
-        "image/format": tf.FixedLenFeature([], tf.string),
-        "image/class/label": tf.FixedLenFeature([], tf.int64),
-        # "image/class/target": tf.FixedLenFeature([3], tf.int64),
-        "image/class/binary_target": tf.FixedLenFeature([10], tf.int64)}
+        "image/left/encoded": tf.io.FixedLenFeature([], tf.string),
+        "image/right/encoded": tf.io.FixedLenFeature([], tf.string),
+        "image/height": tf.io.FixedLenFeature([], tf.int64),
+        "image/width": tf.io.FixedLenFeature([], tf.int64),
+        "image/colorspace": tf.io.FixedLenFeature([], tf.string),
+        "image/channels": tf.io.FixedLenFeature([], tf.int64),
+        "image/format": tf.io.FixedLenFeature([], tf.string),
+        "image/class/label": tf.io.FixedLenFeature([], tf.int64),
+        # "image/class/target": tf.io.FixedLenFeature([3], tf.int64),
+        "image/class/binary_target": tf.io.FixedLenFeature([10], tf.int64)}
 
-    parsed_features = tf.parse_single_example(example_proto, features)
+    parsed_features = tf.io.parse_single_example(example_proto, features)
     no_classes = 10
     channels = parsed_features["image/channels"]
     one_hot = tf.one_hot(parsed_features["image/class/label"], no_classes)
@@ -228,17 +228,17 @@ def _osdigits_parse_single(example_proto):
 
 def _digits_parse_single(example_proto):
     features = {
-        "image/left/encoded": tf.FixedLenFeature([], tf.string),
-        "image/height": tf.FixedLenFeature([], tf.int64),
-        "image/width": tf.FixedLenFeature([], tf.int64),
-        "image/colorspace": tf.FixedLenFeature([], tf.string),
-        "image/channels": tf.FixedLenFeature([], tf.int64),
-        "image/format": tf.FixedLenFeature([], tf.string),
-        "image/class/label": tf.FixedLenFeature([], tf.int64),
-        # "image/class/target": tf.FixedLenFeature([3], tf.int64),
-        "image/class/binary_target": tf.FixedLenFeature([10], tf.int64)}
+        "image/left/encoded": tf.io.FixedLenFeature([], tf.string),
+        "image/height": tf.io.FixedLenFeature([], tf.int64),
+        "image/width": tf.io.FixedLenFeature([], tf.int64),
+        "image/colorspace": tf.io.FixedLenFeature([], tf.string),
+        "image/channels": tf.io.FixedLenFeature([], tf.int64),
+        "image/format": tf.io.FixedLenFeature([], tf.string),
+        "image/class/label": tf.io.FixedLenFeature([], tf.int64),
+        # "image/class/target": tf.io.FixedLenFeature([3], tf.int64),
+        "image/class/binary_target": tf.io.FixedLenFeature([10], tf.int64)}
 
-    parsed_features = tf.parse_single_example(example_proto, features)
+    parsed_features = tf.io.parse_single_example(example_proto, features)
     no_classes = 10
     channels = parsed_features["image/channels"]
     one_hot = tf.one_hot(parsed_features["image/class/label"], no_classes)
@@ -251,19 +251,19 @@ def _digits_parse_single(example_proto):
 
 def _osmnist_parse_single(example_proto):
     features = {
-        "image_left": tf.FixedLenFeature([], tf.string),
-        "image_right": tf.FixedLenFeature([], tf.string),
-        "label1": tf.FixedLenFeature([], tf.int64),
-        "label2": tf.FixedLenFeature([], tf.int64),
-        "label3": tf.FixedLenFeature([], tf.int64),
-        "occlusion_left": tf.FixedLenFeature([], tf.float32),
-        "occlusion_right": tf.FixedLenFeature([], tf.float32),
-        "occlusion_avg": tf.FixedLenFeature([], tf.float32),
-        "segmap_left": tf.FixedLenFeature([], tf.string),
-        "segmap_right": tf.FixedLenFeature([], tf.string),
+        "image_left": tf.io.FixedLenFeature([], tf.string),
+        "image_right": tf.io.FixedLenFeature([], tf.string),
+        "label1": tf.io.FixedLenFeature([], tf.int64),
+        "label2": tf.io.FixedLenFeature([], tf.int64),
+        "label3": tf.io.FixedLenFeature([], tf.int64),
+        "occlusion_left": tf.io.FixedLenFeature([], tf.float32),
+        "occlusion_right": tf.io.FixedLenFeature([], tf.float32),
+        "occlusion_avg": tf.io.FixedLenFeature([], tf.float32),
+        "segmap_left": tf.io.FixedLenFeature([], tf.string),
+        "segmap_right": tf.io.FixedLenFeature([], tf.string),
     }
 
-    parsed_features = tf.parse_single_example(example_proto, features)
+    parsed_features = tf.io.parse_single_example(example_proto, features)
 
     no_classes = 10
     one_hot = tf.one_hot(parsed_features["label1"], no_classes)
@@ -290,20 +290,29 @@ def _osmnist_parse_single(example_proto):
 
 def _mnist_parse_single(example_proto):
     features = {
-        "image": tf.FixedLenFeature([], tf.string),
-        "label": tf.FixedLenFeature([], tf.int64),
+        "height": tf.io.FixedLenFeature([], tf.int64),
+        "width": tf.io.FixedLenFeature([], tf.int64),
+        "depth": tf.io.FixedLenFeature([], tf.int64),
+        "label": tf.io.FixedLenFeature([], tf.int64),
+        "image_raw": tf.io.FixedLenFeature([], tf.string),
+
     }
 
-    parsed_features = tf.parse_single_example(example_proto, features)
+    parsed_features = tf.io.parse_single_example(example_proto, features)
 
     no_classes = 10
     one_hot = tf.one_hot(parsed_features["label"], no_classes)
     n_hot = one_hot
 
-    images_encoded = parsed_features["image"]
-    image_decoded = tf.image.decode_png(images_encoded)
+    images_encoded = parsed_features["image_raw"]
+    height = parsed_features['height']
+    width = parsed_features['width']
+    depth = parsed_features['depth']
+    image_shape = tf.stack([height, width, depth])
 
-    return image_decoded, image_decoded, n_hot, one_hot
+    image_decoded = tf.decode_raw(images_encoded, tf.float32)
+    image = tf.reshape(image_decoded, image_shape)
+    return image, image, n_hot, one_hot
 
 
 def decode_bytebatch(raw_bytes):
