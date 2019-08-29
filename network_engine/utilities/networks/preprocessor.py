@@ -78,36 +78,39 @@ class PreprocessorNetwork(bb.ComposedModule):
                      self.image_channels]),
             trainable=False)
 
-        self.update_stats['N'] = tf.assign_add(self.stats['N'], self.batchsize)
-        self.update_stats['Sx'] = tf.assign_add(
+        self.update_stats['N'] = tf.compat.v1.assign_add(self.stats['N'],
+                                                         self.batchsize)
+        self.update_stats['Sx'] = tf.compat.v1.assign_add(
             self.stats['Sx'], tf.expand_dims(
                 tf.reduce_sum(
                     tf.cast(self.input_module.outputs[0], tf.float32),
                     axis=0), 0))
-        self.update_stats['Sxx'] = tf.assign_add(
+        self.update_stats['Sxx'] = tf.compat.v1.assign_add(
             self.stats['Sxx'], tf.expand_dims(
                 tf.reduce_sum(tf.square(
                     tf.cast(self.input_module.outputs[0], tf.float32)),
                     axis=0), 0))
 
-        self.reset_stats['N'] = tf.assign(self.stats['N'], 0)
+        self.reset_stats['N'] = tf.compat.v1.assign(self.stats['N'], 0)
 
-        self.reset_stats['Sx'] = tf.assign(
+        self.reset_stats['Sx'] = tf.compat.v1.assign(
             self.stats['Sx'],
             tf.zeros([1, self.image_height, self.image_width,
                      self.image_channels]))
 
-        self.reset_stats['Sxx'] = tf.assign(
+        self.reset_stats['Sxx'] = tf.compat.v1.assign(
             self.stats['Sxx'],
             tf.zeros([1, self.image_height, self.image_width,
                      self.image_channels]))
 
         pass
 
-    def gather_statistics(self, session, iterator, filenames, is_training,
-                          show_average_image=False):
-        initialize_stats(self)
-        session.run(iterator.initializer, feed_dict={filenames: filenames})
+    def gather_statistics(self, session, iterator, flnames,
+                          filenames_placeholder, is_training,
+                          show_image=False):
+        self.initialize_stats()
+        session.run(iterator.initializer,
+                    feed_dict={filenames_placeholder: flnames})
         print(" " * 80 + "\r" + "[Statistics]\tstarted", end="\r")
         session.run([self.reset_stats['N'],
                     self.reset_stats['Sx'], self.reset_stats['Sxx']])
@@ -116,22 +119,28 @@ class PreprocessorNetwork(bb.ComposedModule):
                 N, Sx, Sxx = session.run(
                     [self.update_stats['N'], self.update_stats['Sx'],
                         self.update_stats['Sxx']],
-                    feed_dict={is_training.placeholder: False,
-                               keep_prob.placeholder: 1.0})
+                    feed_dict={is_training.placeholder: False})
             except (tf.errors.OutOfRangeError):
-                session.run([tf.assign(
+                session.run([tf.compat.v1.assign(
                     self.layers['inp_norm'].n, self.stats['N']),
-                    tf.assign(self.layers['inp_norm'].sx,
-                              self.stats['Sx']),
-                    tf.assign(self.layers['inp_norm'].sxx,
-                              self.stats['Sxx'])])
-                if show_average_image:
+                    tf.compat.v1.assign(self.layers['inp_norm'].sx,
+                                        self.stats['Sx']),
+                    tf.compat.v1.assign(self.layers['inp_norm'].sxx,
+                                        self.stats['Sxx'])])
+                if show_image:
                     import matplotlib.pyplot as plt
-                    a = session.run(self.layers['inp_norm'].outputs[0],
-                                    feed_dict={is_training.placeholder: False,
-                                    keep_prob.placeholder: 1.0})
+                    session.run(iterator.initializer,
+                                feed_dict={
+                                    filenames_placeholder: flnames})
+                    im = session.run(self.layers['inp_norm'].outputs[0],
+                                     feed_dict={
+                                     is_training.placeholder: False})
                     for i in range(10):
-                        plt.imshow(a[i, :, :, 0])
+                        print('max:', np.max(im[i, :, :, 0]),
+                              'min:', np.min(im[i, :, :, 0]),
+                              'std:', np.std(im[i, :, :, 0]),
+                              'mean:', np.mean(im[i, :, :, 0]))
+                        plt.imshow(im[i, :, :, 0])
                         plt.show()
                 break
             pass
@@ -170,14 +179,15 @@ class PreprocessorNetwork(bb.ComposedModule):
             else:
                 pass
 
-        if norm_by_stat_bool:
-            with tf.name_scope('pixel_wise_normalization'):
+        with tf.name_scope('input_normalization'):
+            if norm_by_stat_bool:
                 self.layers["inp_norm"] = bb.PixelwiseNormalizationModule(
-                    "inp_norm", [1, image_height, image_width, image_channels])
-        else:
-            with tf.name_scope('input_normalization'):
+                        "inp_norm",
+                        [1, image_height, image_width, image_channels])
+            else:
                 self.layers["inp_norm"] = bb.NormalizationModule(
-                    "inp_norm", inp_max, inp_min)
+                        "inp_norm", inp_max, inp_min)
+
         #    connect all modules of the network in a meaningful way
         # -----
 
@@ -188,11 +198,14 @@ class PreprocessorNetwork(bb.ComposedModule):
                 self.layers['inp_norm'].add_input(
                     self.layers['manipulated'])
 
+            elif norm_by_stat_bool:
+                self.layers['inp_norm'].add_input(
+                    self.layers['pass_through'])
+
             else:
                 self.layers['inp_norm'].add_input(
                     self.layers['pass_through'])
 
-        with tf.name_scope('input_output'):
             self.input_module = self.layers["pass_through"]
             self.output_module = self.layers["inp_norm"]
 
@@ -213,13 +226,13 @@ class PreprocessorNetwork(bb.ComposedModule):
 # self.stats['Sx'] = tf.Variable(tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]), trainable=False)
 # self.stats['Sxx'] = tf.Variable(tf.ones([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]), trainable=False)
 #
-# self.update_stats['N'] = tf.assign_add(self.stats['N'], BATCH_SIZE)
-# self.update_stats['Sx'] = tf.assign_add(self.stats['Sx'], tf.expand_dims(tf.reduce_sum(tf.cast(inp.variable, tf.float32), axis=0), 0))
-# self.update_stats['Sxx'] = tf.assign_add(self.stats['Sxx'], tf.expand_dims(tf.reduce_sum(tf.square(tf.cast(inp.variable, tf.float32)), axis=0), 0))
+# self.update_stats['N'] = tf.compat.v1.assign_add(self.stats['N'], BATCH_SIZE)
+# self.update_stats['Sx'] = tf.compat.v1.assign_add(self.stats['Sx'], tf.expand_dims(tf.reduce_sum(tf.cast(inp.variable, tf.float32), axis=0), 0))
+# self.update_stats['Sxx'] = tf.compat.v1.assign_add(self.stats['Sxx'], tf.expand_dims(tf.reduce_sum(tf.square(tf.cast(inp.variable, tf.float32)), axis=0), 0))
 #
-# self.reset_stats['N'] = tf.assign(self.stats['N'], 0)
-# self.reset_stats['Sx'] = tf.assign(self.stats['Sx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
-# self.reset_stats['Sxx'] = tf.assign(self.stats['Sxx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
+# self.reset_stats['N'] = tf.compat.v1.assign(self.stats['N'], 0)
+# self.reset_stats['Sx'] = tf.compat.v1.assign(self.stats['Sx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
+# self.reset_stats['Sxx'] = tf.compat.v1.assign(self.stats['Sxx'], tf.zeros([1, IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS]))
 # ----
 #
 #
@@ -233,10 +246,10 @@ class PreprocessorNetwork(bb.ComposedModule):
 #             N, Sx, Sxx = sess.run([self.update_stats['N'], self.update_stats['Sx'], self.update_stats['Sxx']], feed_dict={
 #                                   is_training.placeholder: False, keep_prob.placeholder: 1.0})
 #         except (tf.errors.OutOfRangeError):
-#             sess.run([tf.assign(network.layers['pw_norm'].n, self.stats['N']),
-#                       tf.assign(
+#             sess.run([tf.compat.v1.assign(network.layers['pw_norm'].n, self.stats['N']),
+#                       tf.compat.v1.assign(
 #                           network.layers['pw_norm'].sx, self.stats['Sx']),
-#                       tf.assign(network.layers['pw_norm'].sxx, self.stats['Sxx'])])
+#                       tf.compat.v1.assign(network.layers['pw_norm'].sxx, self.stats['Sxx'])])
 #             # import matplotlib.pyplot as plt
 #             # a = sess.run(network.layers['pw_norm'].outputs[0], feed_dict = {is_training.placeholder:False, keep_prob.placeholder: 1.0})
 #             # for i in range(50):
