@@ -48,17 +48,18 @@ import numpy as np
 
 # constant for cmd-line visualization
 INDENT = 0
-
+VERBOSE = False
 
 # activation functions
 # -----
+
 
 def softmax_cross_entropy(a, b, name):
     """
     custom loss function based on cross-entropy that can be used within the
     error module
     """
-    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+    return tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(
                           logits=a, labels=b, name=name))
 
 
@@ -150,8 +151,10 @@ class Module:
           ?:                    None
         """
         global INDENT
-        print("|  " * INDENT +
-              "creating output of {} at time {}".format(self.name, t))
+        global VERBOSE
+        if VERBOSE:
+            print("|  " * INDENT +
+                  "creating output of {} at time {}".format(self.name, t))
         INDENT += 1
         for inp, dt in self.inputs:
             if inp.need_to_create_output(dt + t):
@@ -159,7 +162,8 @@ class Module:
         tensors = self.input_tensors(t)
         self.outputs[t] = self.operation(*tensors)
         INDENT -= 1
-        print("|  " * INDENT + "|{}".format(self.outputs[t]))
+        if VERBOSE:
+            print("|  " * INDENT + "|{}".format(self.outputs[t]))
 
     def input_tensors(self, t):
         """
@@ -496,7 +500,7 @@ class Conv2DModule(VariableModule):
         tensorflow variable for the filters (or weights) for the convolution as
         specified by the parameters given in the constructor.
         """
-        self.weights = tf.Variable(tf.truncated_normal(
+        self.weights = tf.Variable(tf.random.truncated_normal(
             shape=self.filter_shape,
             stddev=2 / np.prod(self.filter_shape)), name=name)
 
@@ -553,7 +557,7 @@ class Conv2DTransposeModule(VariableModule):
         of the deconvolution as specified by the parameters given in the
         constructor.
         """
-        self.weights = tf.Variable(tf.truncated_normal(shape=self.filter_shape,
+        self.weights = tf.Variable(tf.random.truncated_normal(shape=self.filter_shape,
                                                        stddev=0.1), name=name)
 
 
@@ -587,8 +591,8 @@ class MaxPoolingModule(OperationModule):
         Returns:
           ?:                    4D tensor, [B,H,W,C]
         """
-        return tf.nn.max_pool(x, self.ksize, self.strides, self.padding,
-                              name=self.name)
+        return tf.nn.max_pool2d(x, self.ksize, self.strides, self.padding,
+                                name=self.name)
 
 
 class GlobalAveragePoolingModule(OperationModule):
@@ -711,7 +715,7 @@ class FullyConnectedModule(VariableModule):
         matrix as specified by the parameters for sizes given in the
         constructor.
         """
-        self.weights = tf.Variable(tf.truncated_normal(shape=(self.in_size,
+        self.weights = tf.Variable(tf.random.truncated_normal(shape=(self.in_size,
                                    self.out_size), stddev=0.1), name=name)
 
 
@@ -748,7 +752,7 @@ class DropoutModule(OperationModule):
         Returns:
           ?:                    4D tensor, same shape as x
         """
-        return tf.nn.dropout(x, keep_prob=self.keep_prob,
+        return tf.nn.dropout(x, rate=1 - self.keep_prob,
                              noise_shape=self.noise_shape,
                              seed=self.seed, name=self.name)
 
@@ -880,11 +884,14 @@ class TimeVaryingPlaceholderModule(PlaceholderModule):
 
     def create_output(self, t):
         global INDENT
-        print("|  " * INDENT + "creating output of {} at time {}".format(
-            self.name, t))
+        global VERBOSE
+        if VERBOSE:
+            print("|  " * INDENT + "creating output of {} at time {}".format(
+                self.name, t))
         for i in range(t - self.max_time + 1):
             self.shift_by_one()
-        print("|  " * INDENT + "|{}".format(self.outputs[t]))
+        if VERBOSE:
+            print("|  " * INDENT + "|{}".format(self.outputs[t]))
 
 
 class ActivationModule(OperationModule):
@@ -1790,7 +1797,7 @@ class InputCanvasModule(OperationModule):
         self.trainable_input = trainable_input
         self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
                                                     name=self.name)
-        self.canvas = tf.Variable(tf.truncated_normal(shape=self.shape,
+        self.canvas = tf.Variable(tf.random.truncated_normal(shape=self.shape,
                                   stddev=0.1), name=name)
         # self.canvas = tf.Variable(tf.zeros(shape=self.shape), name=name)
         # self.canvas = tf.get_variable(name=self.name,
@@ -1903,6 +1910,9 @@ class NormalizationModule(OperationModule):
         ret = tf.cond(tf.equal(tf.reduce_max(casted_x), 0.),
                       ret_identity, apply_transformation)
 
+        # TODO: rethink this
+        pis = tf.image.per_image_standardization(casted_x)
+
         return ret
 
 
@@ -1939,13 +1949,23 @@ class PixelwiseNormalizationModule(OperationModule):
         Returns:
           ?:                    tensor, same shape as x
         """
-        sd = tf.math.sqrt(tf.subtract(tf.math.multiply(self.n, self.sxx),
-                          tf.math.square(self.sx)))/self.n
+
+        # Var = (SumSq − (Sum × Sum) / n) / (n − 1)
+        sd = tf.math.sqrt(
+            ((self.sxx - (tf.math.square(self.sx)) / self.n)) / (self.n - 1)
+            )
+
         m = self.sx/self.n
         rescaled_x = (tf.cast(x, self.dtype) - m)/sd
+        non_nan = tf.where(tf.math.is_nan(rescaled_x),
+                           tf.zeros_like(rescaled_x),
+                           rescaled_x)
+        clipped = tf.clip_by_value(non_nan,
+                                   clip_value_min=-5*sd,
+                                   clip_value_max=+5*sd,
+                                   )
 
-        return tf.where(tf.is_nan(rescaled_x), tf.zeros_like(rescaled_x),
-                        rescaled_x)
+        return clipped
 
 
 if __name__ == '__main__':
