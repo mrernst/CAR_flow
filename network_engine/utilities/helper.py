@@ -67,25 +67,25 @@ def compile_list_of_additional_summaries(network, time_depth,
 
         for kernel in list_of_weights:
             kname = kernel.name.split('/')[1].split('_')[0] + '_weights'
-            add.append(tf.summary.histogram(kname, kernel))
+            add.append(tf.compat.v1.summary.histogram(kname, kernel))
 
     # with tf.name_scope('extras'):
     #     # this is the space to look at some interesting things that are not
     #     # necessarily defined in every network and accessible
     #
-    #     add.append(tf.summary.histogram(
+    #     add.append(tf.compat.v1.summary.histogram(
     #         'conv0_pre_activations_{}'.format(time_depth),
     #         network.layers["conv0"].preactivation.outputs[time_depth]))
-    #     add.append(tf.summary.histogram(
+    #     add.append(tf.compat.v1.summary.histogram(
     #         'conv0_activations_{}'.format(time_depth),
     #         network.layers["conv0"].outputs[time_depth]))
-    #     add.append(tf.summary.histogram(
+    #     add.append(tf.compat.v1.summary.histogram(
     #         'conv1_pre_activations_{}'.format(time_depth),
     #         network.layers["conv1"].preactivation.outputs[time_depth]))
-    #     add.append(tf.summary.histogram(
+    #     add.append(tf.compat.v1.summary.histogram(
     #         'conv1_activations_{}'.format(time_depth),
     #         network.layers["conv1"].outputs[time_depth]))
-    #     add.append(tf.summary.histogram(
+    #     add.append(tf.compat.v1.summary.histogram(
     #         'fc0_pre_activations_{}'.format(time_depth),
     #         network.layers["fc0"].preactivation.outputs[time_depth]))
     #
@@ -135,7 +135,7 @@ def compile_list_of_image_summaries(network, stereo):
         elif 'conv0' in kname:
             if stereo:
                 image.append(
-                    tf.summary.image(kname, put_kernels_on_grid(
+                    tf.compat.v1.summary.image(kname, put_kernels_on_grid(
                         kname, tf.reshape(kernel,
                                           [2 * receptive_pixels,
                                               receptive_pixels, -1,
@@ -145,13 +145,13 @@ def compile_list_of_image_summaries(network, stereo):
                                      max_outputs=1))
             else:
                 image.append(
-                    tf.summary.image(kname, put_kernels_on_grid(
+                    tf.compat.v1.summary.image(kname, put_kernels_on_grid(
                         kname, kernel),
                         max_outputs=1))
 
         else:
             image.append(
-                tf.summary.image(kname, put_kernels_on_grid(
+                tf.compat.v1.summary.image(kname, put_kernels_on_grid(
                     kname, tf.reshape(
                         kernel, [receptive_pixels, receptive_pixels,
                                  1, -1])), max_outputs=1))
@@ -164,13 +164,13 @@ def compile_list_of_train_summaries(network, accuracy, partial_accuracy, error,
     train = []
 
     with tf.name_scope('accuracy_and_error'):
-        train.append(tf.summary.scalar(
+        train.append(tf.compat.v1.summary.scalar(
             error.name + "_{}".format(time_depth), error.outputs[time_depth]))
-        train.append(tf.summary.scalar(
+        train.append(tf.compat.v1.summary.scalar(
             accuracy.name + "_{}".format(time_depth),
             accuracy.outputs[time_depth]))
         if label_type == 'nhot':
-            train.append(tf.summary.scalar(
+            train.append(tf.compat.v1.summary.scalar(
                 partial_accuracy.name + "_{}".format(time_depth),
                 partial_accuracy.outputs[time_depth]))
 
@@ -196,26 +196,26 @@ def compile_list_of_test_summaries(testavg, label_type, time_depth,
     test = []
     # TODO: try to write test and train to the same window
     with tf.name_scope('testtime'):
-        test.append(tf.summary.scalar(
+        test.append(tf.compat.v1.summary.scalar(
             'avg_loss', testavg.average_cross_entropy[time_depth]))
-        test.append(tf.summary.scalar(
+        test.append(tf.compat.v1.summary.scalar(
             'avg_accuracy', testavg.average_accuracy[time_depth]))
         if label_type == 'nhot':
-            test.append(tf.summary.scalar(
+            test.append(tf.compat.v1.summary.scalar(
                 'avg_partial_accuracy',
                 testavg.average_partial_accuracy[time_depth]))
 
     with tf.name_scope('test_time_beyond'):
         # there must be a way without getting accuracy into this function
         for time in range(0, time_depth + time_depth_beyond + 1):
-            test.append(tf.summary.scalar(
+            test.append(tf.compat.v1.summary.scalar(
                 'avg_loss' + "_{}".format(time),
                 testavg.average_cross_entropy[time]))
-            test.append(tf.summary.scalar(
+            test.append(tf.compat.v1.summary.scalar(
                 'avg_accuracy' + "_{}".format(time),
                 testavg.average_accuracy[time]))
             if label_type == 'nhot':
-                test.append(tf.summary.scalar(
+                test.append(tf.compat.v1.summary.scalar(
                     'avg_partial_accuracy' + "_{}".format(time),
                     testavg.average_partial_accuracy[time]))
 
@@ -236,8 +236,10 @@ def get_and_merge_summaries(network, testavg, accuracy, partial_accuracy,
     add = compile_list_of_additional_summaries(
         network, time_depth, time_depth_beyond)
 
-    return tf.summary.merge(test), tf.summary.merge(train),\
-        tf.summary.merge(image), tf.summary.merge(add)
+    return tf.compat.v1.summary.merge(test), \
+        tf.compat.v1.summary.merge(train), \
+        tf.compat.v1.summary.merge(image), \
+        tf.compat.v1.summary.merge(add)
 
 
 def get_output_directory(configuration_dict, flags):
@@ -359,20 +361,23 @@ def get_image_files(tfrecord_dir, training_dir, validation_dir, test_dir,
     list_of_dirs = [training_dir, validation_dir, test_dir, evaluation_dir]
     list_of_types = ['train', 'validation', 'test', 'evaluation']
     list_of_files = []
-    for dir in list_of_dirs:
-        type = list_of_types[list_of_dirs.index(dir)]
-        if dir:
-            if dir == 'all':
+    for i in range(len(list_of_dirs)):
+        type = list_of_types[i]
+        if list_of_dirs[i]:
+            if list_of_dirs[i] == 'all':
                 list_of_files.append(
                     tfrecord_handler.all_percentages_tfrecord_paths(
                         type, dataset, input_directory,
                         n_occluders, downsampling))
             else:
                 list_of_files.append(
-                    tfrecord_handler.tfrecord_auto_traversal(dir))
+                    tfrecord_handler.tfrecord_auto_traversal(list_of_dirs[i]))
         else:
-            list_of_files.append(tfrecord_handler.tfrecord_auto_traversal(
-                tfrecord_dir + type + '/'))
+            try:
+                list_of_files.append(tfrecord_handler.tfrecord_auto_traversal(
+                    tfrecord_dir + list_of_types[i] + '/'))
+            except(FileNotFoundError):
+                list_of_files.append('')
     training, validation, testing, evaluation = list_of_files
     if len(testing) == 0:
         print('[INFO] No test-set found, using validation-set instead')
@@ -506,7 +511,7 @@ def largest_indices(arr, n):
     return np.unravel_index(indices, arr.shape)
 
 
-def print_misclassified_objects(cm, n_obj=5):
+def print_misclassified_objects(cm, encoding, n_obj=5):
     """
     prints out the n_obj misclassified objects given a
     confusion matrix array cm.
