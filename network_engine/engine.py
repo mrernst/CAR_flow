@@ -71,7 +71,7 @@ import utilities.helper as helper
 
 import utilities.networks.buildingblocks as bb
 import utilities.networks.preprocessor as preprocessor
-
+import utilities.afterburner as afterburner
 
 # commandline arguments
 # -----
@@ -89,8 +89,6 @@ tf.app.flags.DEFINE_string('name', '',
                            'name of the run, i.e. iteration1')
 tf.app.flags.DEFINE_boolean('restore_ckpt', True,
                             'restore model from last checkpoint')
-tf.app.flags.DEFINE_boolean('evaluate_ckpt', False,
-                            'load model and evaluate')
 
 
 FLAGS = tf.app.flags.FLAGS
@@ -406,8 +404,6 @@ dataset = dataset.map(PARSER)
 
 if FLAGS.testrun:
     dataset = dataset.take(300)  # take smaller dataset for testing
-if not(FLAGS.evaluate_ckpt):
-    dataset = dataset.shuffle(buffer_size=CONFIG['buffer_size'])
 
 
 dataset = dataset.batch(CONFIG['batchsize'], drop_remainder=True)
@@ -478,7 +474,7 @@ network.add_input(inp_prep)
 one_time_error.add_input(network)
 one_time_error.add_input(labels)
 error.add_input(one_time_error, 0)
-error.add_input(error, -1)  # seems good, but is this the right way..?
+error.add_input(error, -1)  # seems to work, but is this the right way..?
 optimizer.add_input(error)
 accuracy.add_input(network)
 accuracy.add_input(labels)
@@ -738,8 +734,19 @@ with tf.compat.v1.Session() as sess:
     image_writer.close()
     add_writer.close()
 
-    # call the afterburner
-    # -----
+
+# call the afterburner
+# -----
+
+# reframe the dataset
+
+# open a new Session
+# with tf.compat.v1.Session() as sess:
+#
+#     print('[INFO] new session opened')
+#     essence = afterburner.DataEssence()
+#     essence.evaluate(sess, flnames, CONFIG['tsne_embedding'])
+#     essence.write_to_file()
 
 
 # _____________________________________________________________________________
