@@ -81,7 +81,7 @@ def tfrecord_auto_traversal(dirpath='./', shuffled=True):
     if current_folder_filename_list is not None:
         print("%s files were found under given directory. " %
               len(current_folder_filename_list))
-        print("Only files ending with '*.tfrecord'" +
+        print("Only files ending with '*.tfrecord' " +
               "will be loaded!")
         tfrecord_list = list_tfrecord_file(
             current_folder_filename_list, dirpath)
