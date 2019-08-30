@@ -100,7 +100,6 @@ CONFIG = helper.infer_additional_parameters(
 )
 
 
-# TODO: Write docstring for LearningRate
 class LearningRate(object):
     """
     LearningRate interits from object. It stores internal variables for
@@ -292,6 +291,8 @@ class TestAccuracy(object):
             reset_accloss = tf.stack((list(reset_total_test_accuracy.values(
             )) + list(reset_total_test_loss.values()) +
                 list(reset_total_test_partial_accuracy.values())))
+        else:
+            self.average_partial_accuracy = self.average_accuracy
 
         self.update = tf.group(update_accloss, update_count)
         self.reset = tf.group(reset_accloss, reset_count)
@@ -344,7 +345,7 @@ inp = bb.NontrainableVariableModule("input", (CONFIG['batchsize'],
                                               CONFIG['image_height'],
                                               CONFIG['image_width'],
                                               CONFIG['image_channels']),
-                                    dtype='float32')
+                                    dtype=DTYPE)
 
 labels = bb.NontrainableVariableModule("input_labels", (CONFIG['batchsize'],
                                                         CONFIG['classes']),
@@ -408,8 +409,6 @@ if FLAGS.testrun:
 if not(FLAGS.evaluate_ckpt):
     dataset = dataset.shuffle(buffer_size=CONFIG['buffer_size'])
 
-# dataset = dataset.apply(
-#     tf.contrib.data.batch_and_drop_remainder(CONFIG['batchsize']))
 
 dataset = dataset.batch(CONFIG['batchsize'], drop_remainder=True)
 iterator = dataset.make_initializable_iterator()
@@ -505,10 +504,9 @@ for time in range(0, (CONFIG['time_depth'] + CONFIG['time_depth_beyond'] + 1)):
     accuracy.create_output(time)
 
 
-partial_accuracy = bb.NHotBatchAccuracyModule(
-    "partial_accuracy", all_labels_true=False)
-
 if CONFIG['label_type'] == 'nhot':
+    partial_accuracy = bb.NHotBatchAccuracyModule(
+        "partial_accuracy", all_labels_true=False)
     accuracy = bb.NHotBatchAccuracyModule("accuracy", all_labels_true=True)
 
     accuracy.add_input(network)
@@ -543,6 +541,8 @@ else:
         tf.argmax(network.outputs[CONFIG['time_depth']], 1),
         tf.argmax(labels.variable, 1))
 
+    partial_accuracy = accuracy
+
 # average accuracy and error at mean test-time
 # -----
 
@@ -556,7 +556,7 @@ embedding = EmbeddingObject(thumbnailsize=32,
                             network=network,
                             accuracy=accuracy)
 
-# average test accuracy and error
+# average test accuracy and error, defines partial_accuracy if not 'nhot'
 testaverages = TestAccuracy(accuracy, error,
                             CONFIG['label_type'],
                             partial_accuracy)
@@ -574,17 +574,13 @@ confusion_matrix = ConfusionMatrix(network, labels,
 # decide which parameters get written to tfevents
 # -----
 
-# TODO: solve this intelligently. Somehow iterate over the network parameters
-# and write down the files
-
-
+# write operations:
 test_merged, train_merged, image_merged, add_merged = \
     helper.get_and_merge_summaries(network,
                                    testaverages,
+                                   error,
                                    accuracy,
                                    partial_accuracy,
-                                   error,
-                                   CONFIG['label_type'],
                                    CONFIG['time_depth'],
                                    CONFIG['time_depth_beyond'],
                                    CONFIG['stereo'])
@@ -598,11 +594,11 @@ with tf.compat.v1.Session() as sess:
     train_writer = tf.compat.v1.summary.FileWriter(
         WRITER_DIRECTORY + '/training', sess.graph)
     test_writer = tf.compat.v1.summary.FileWriter(
-        WRITER_DIRECTORY + '/training')
+        WRITER_DIRECTORY + '/testing')
     add_writer = tf.compat.v1.summary.FileWriter(
-        WRITER_DIRECTORY + '/training/extra')
+        WRITER_DIRECTORY + '/testing/extra')
     image_writer = tf.compat.v1.summary.FileWriter(
-        WRITER_DIRECTORY + '/training/images')
+        WRITER_DIRECTORY + '/testing/images')
 
     if FLAGS.testrun:
         # debug writer for metadata etc.
@@ -626,7 +622,6 @@ with tf.compat.v1.Session() as sess:
             try:
                 _, _, extras, images = sess.run(
                     [testaverages.update, confusion_matrix.update,
-
                         add_merged, image_merged],
                     feed_dict={keep_prob.placeholder: 1.0,
                                is_training.placeholder: False})
@@ -694,83 +689,6 @@ with tf.compat.v1.Session() as sess:
 
         return train_it
 
-    def evaluation(train_it, flnames=evaluation_filenames, tag='Evaluation'):
-        print(" " * 80 + "\r" + "[{}}]\tstarted".format(tag), end="\r")
-        sess.run([iterator.initializer, testaverages.reset, embedding.reset],
-                 feed_dict={filenames: flnames})
-
-        # TODO: this should be part of the afterburner, saved to python native
-        # get the full output distribution, rewrite the evaluation function
-        # all of this including the tsne is afterburner stuff
-        list_of_output_samples = []
-        list_of_output_times = []
-        for time in network.outputs:
-            list_of_output_times.append(tf.nn.softmax(network.outputs[time]))
-
-        # delete bool_classification file if it already exists
-
-        if os.path.exists(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
-                          "bool_classification.txt"):
-
-            os.remove(WRITER_DIRECTORY + 'checkpoints/' +
-                      'evaluation/' + "bool_classification.txt")
-        while True:
-            try:
-                _, _, extras, images, bc, out = sess.run(
-                    [update, update_emb, add_merged, image_merged,
-                        bool_classification, list_of_output_times],
-                    feed_dict={keep_prob.placeholder: 1.0,
-                               is_training.placeholder: False})
-
-                # save output of boolean comparison
-                boolfile = open(WRITER_DIRECTORY + 'checkpoints/' +
-                                'evaluation/' + "bool_classification.txt", "a")
-
-                if CONFIG['label_type'] == "onehot":
-                    for i in list(bc):
-                        boolfile.write(str(int(i)) + '\n')
-                else:
-                    for i in range(len(bc[0])):
-                        for el in bc[0][i]:
-                            boolfile.write(
-                                str(int(el in set(bc[1][i]))) + '\t')
-                        boolfile.write('\n')
-                boolfile.close()
-
-                # temporary code to save output
-                list_of_output_samples.append(out)
-
-            except (tf.errors.OutOfRangeError):
-                break
-
-        if CONFIG['label_type'] == 'nhot':
-            acc, loss, emb, emb_labels, emb_thu, summary = sess.run(
-                [testaverages.average_partial_accuracy[CONFIG['time_depth']],
-                    testaverages.average_cross_entropy[CONFIG['time_depth']],
-                    embedding.total,
-                    embedding.labels,
-                    embedding.thumbnails,
-                    test_merged])
-        else:
-            acc, loss, emb, emb_labels, emb_thu, summary = sess.run(
-                [testaverages.average_accuracy[CONFIG['time_depth']],
-                    testaverages.average_cross_entropy[CONFIG['time_depth']],
-                    embedding.total,
-                    embedding.labels,
-                    embedding.thumbnails,
-                    test_merged])
-
-        print(" " * 80 + "\r" +
-              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
-              .format(tag, loss, acc, train_it))
-
-        np.savez_compressed(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
-                            'softmax_output.npz',
-                            np.array(list_of_output_samples))
-
-        # pass labels to write to metafile
-        return emb, emb_labels, emb_thu
-
     # continueing from restored checkpoint
     # -----
 
@@ -790,76 +708,6 @@ with tf.compat.v1.Session() as sess:
                   'starting experiment from scratch')
             FLAGS.restore_ckpt = False
             # sys.exit()
-
-    # evaluating restored checkpoint
-    # -----
-
-    if FLAGS.evaluate_ckpt:
-        checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIRECTORY)
-        if checkpoint and checkpoint.model_checkpoint_path:
-            saver.restore(sess, checkpoint.model_checkpoint_path)
-
-            # make sure the directories exist, otherwise create them
-            mkdir_p(CHECKPOINT_DIRECTORY + 'evaluation/')
-            print('[INFO] Restored checkpoint successfully,' +
-                  ' running evaluation')
-            emb, emb_labels, emb_thu = evaluation(
-                global_step.eval(), flnames=evaluation_filenames)
-
-            # TODO:: Write a dedicated tsne writer function
-            # visualize with tsne
-            if False:
-                saver.save(sess, WRITER_DIRECTORY + 'checkpoints/' +
-                           'evaluation/' + CONFIG['name'] +
-                           CONFIG['connectivity'] + CONFIG['dataset'],
-                           global_step=global_step.eval())
-
-                npnames = CONFIG['class_encoding']
-                lookat = np.zeros(emb_labels.shape, dtype=np.int32)
-                lookat[-50:] = 1
-                emb_labels = np.asarray(emb_labels, dtype=np.int32)
-
-                # save labels to textfile to be read by tensorboard
-                np.savetxt(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/'
-                           + "metadata.tsv",
-                           np.column_stack([emb_labels, npnames[emb_labels],
-                                           lookat]),
-                           header="labels\tnames\tlookat",
-                           fmt=["%s", "%s", "%s"], delimiter="\t", comments='')
-
-                # save thumbnails to sprite image
-                save_sprite_image(WRITER_DIRECTORY + 'checkpoints/' +
-                                  'evaluation/' +
-                                  'embedding_spriteimage.png',
-                                  emb_thu[:, :, :, :])
-
-                # configure metadata linking
-                projector_config = projector.ProjectorConfig()
-                embeddings_dict = {}
-                # try to write down everything here
-                for i in range(TIME_DEPTH + TIME_DEPTH_BEYOND + 1):
-                    embeddings_dict[i] = projector_config.embeddings_dict.add()
-                    embeddings_dict[i].tensor_name = \
-                        total_embedding_preclass[i].name
-                    embeddings_dict[i].metadata_path = os.path.join(
-                        WRITER_DIRECTORY + 'checkpoints/' +
-                        'evaluation/', 'metadata.tsv')
-                    embeddings_dict[i].sprite.image_path = WRITER_DIRECTORY + \
-                        'checkpoints/' + 'evaluation/' + \
-                        'embedding_spriteimage.png'
-                    embeddings_dict[i].sprite.single_image_dibb.extend(
-                        [embedding.thu_height, embedding.thu_height])
-
-                tnse_writer = tf.compat.v1.summary.FileWriter(
-                    WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/')
-                projector.visualize_embeddings(
-                    tsne_writer, projector_config)
-
-            sys.exit()
-            print('[INFO] Continue training from last checkpoint')
-        else:
-            print('[INFO] No checkpoint data found, exiting')
-            sys.exit()
 
     # training loop
     # -----
