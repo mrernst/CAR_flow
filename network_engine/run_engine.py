@@ -116,7 +116,6 @@ class SbatchDocument(object):
             '    srun python3 engine.py \ \n' + \
             '       --testrun=false \ \n' + \
             '       --restore_ckpt=true \ \n' + \
-            '       --evaluate_ckpt=false \ \n' + \
             '       --config_file ${config_array[$j]}\n' + \
             '       --name iteration$i\n' + \
             'done \n'
