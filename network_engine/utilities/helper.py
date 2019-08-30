@@ -159,20 +159,29 @@ def compile_list_of_image_summaries(network, stereo):
     return image
 
 
-def compile_list_of_train_summaries(network, accuracy, partial_accuracy, error,
-                                    label_type, time_depth):
+def compile_list_of_train_summaries(network, loss, accuracy,
+                                    partial_accuracy,
+                                    time_depth):
     train = []
 
-    with tf.name_scope('accuracy_and_error'):
+    # with tf.name_scope('accuracy_and_error'):
+    #     train.append(tf.compat.v1.summary.scalar(
+    #         error.name + "_{}".format(time_depth),
+    #         error.outputs[time_depth]))
+    #     train.append(tf.compat.v1.summary.scalar(
+    #         accuracy.name + "_{}".format(time_depth),
+    #         accuracy.outputs[time_depth]))
+    #     train.append(tf.compat.v1.summary.scalar(
+    #         partial_accuracy.name + "_{}".format(time_depth),
+    #         partial_accuracy.outputs[time_depth]))
+
+    with tf.name_scope('accuracy_and_error/'):
         train.append(tf.compat.v1.summary.scalar(
-            error.name + "_{}".format(time_depth), error.outputs[time_depth]))
+            'loss', loss.outputs[time_depth]))
         train.append(tf.compat.v1.summary.scalar(
-            accuracy.name + "_{}".format(time_depth),
-            accuracy.outputs[time_depth]))
-        if label_type == 'nhot':
-            train.append(tf.compat.v1.summary.scalar(
-                partial_accuracy.name + "_{}".format(time_depth),
-                partial_accuracy.outputs[time_depth]))
+            'accuracy', accuracy.outputs[time_depth]))
+        train.append(tf.compat.v1.summary.scalar(
+            'partial_accuracy', partial_accuracy.outputs[time_depth]))
 
     with tf.name_scope('weights_and_biases'):
         list_of_weights = network.get_all_weights()
@@ -191,46 +200,52 @@ def compile_list_of_train_summaries(network, accuracy, partial_accuracy, error,
     return train
 
 
-def compile_list_of_test_summaries(testavg, label_type, time_depth,
+def compile_list_of_test_summaries(testavg, loss, accuracy,
+                                   partial_accuracy, time_depth,
                                    time_depth_beyond):
     test = []
     # TODO: try to write test and train to the same window
-    with tf.name_scope('testtime'):
+    with tf.name_scope('testtime/'):
         test.append(tf.compat.v1.summary.scalar(
-            'avg_loss', testavg.average_cross_entropy[time_depth]))
+            'loss', testavg.average_cross_entropy[time_depth]))
         test.append(tf.compat.v1.summary.scalar(
-            'avg_accuracy', testavg.average_accuracy[time_depth]))
-        if label_type == 'nhot':
-            test.append(tf.compat.v1.summary.scalar(
-                'avg_partial_accuracy',
-                testavg.average_partial_accuracy[time_depth]))
+            'accuracy', testavg.average_accuracy[time_depth]))
+        test.append(tf.compat.v1.summary.scalar(
+            'partial_accuracy',
+            testavg.average_partial_accuracy[time_depth]))
 
-    with tf.name_scope('test_time_beyond'):
-        # there must be a way without getting accuracy into this function
+    # with tf.name_scope('accuracy_and_error/'):
+    #     test.append(tf.compat.v1.summary.scalar(
+    #         'loss', loss))
+    #     test.append(tf.compat.v1.summary.scalar(
+    #         'accuracy', accuracy))
+    #     test.append(tf.compat.v1.summary.scalar(
+    #         'partial_accuracy', partial_accuracy))
+
+    with tf.name_scope('testtime_beyond'):
         for time in range(0, time_depth + time_depth_beyond + 1):
             test.append(tf.compat.v1.summary.scalar(
-                'avg_loss' + "_{}".format(time),
+                'loss' + "_{}".format(time),
                 testavg.average_cross_entropy[time]))
             test.append(tf.compat.v1.summary.scalar(
-                'avg_accuracy' + "_{}".format(time),
+                'accuracy' + "_{}".format(time),
                 testavg.average_accuracy[time]))
-            if label_type == 'nhot':
-                test.append(tf.compat.v1.summary.scalar(
-                    'avg_partial_accuracy' + "_{}".format(time),
-                    testavg.average_partial_accuracy[time]))
+            test.append(tf.compat.v1.summary.scalar(
+                'partial_accuracy' + "_{}".format(time),
+                testavg.average_partial_accuracy[time]))
 
     return test
 
 
-def get_and_merge_summaries(network, testavg, accuracy, partial_accuracy,
-                            error, label_type, time_depth,
-                            time_depth_beyond, stereo):
+def get_and_merge_summaries(network, testavg, loss, accuracy, partial_accuracy,
+                            time_depth, time_depth_beyond, stereo):
 
     test = compile_list_of_test_summaries(
-        testavg, label_type, time_depth, time_depth_beyond)
+        testavg, loss, accuracy, partial_accuracy,
+        time_depth, time_depth_beyond)
     train = compile_list_of_train_summaries(
-        network, accuracy, partial_accuracy, error,
-        label_type, time_depth)
+        network, loss, accuracy, partial_accuracy,
+        time_depth)
     image = compile_list_of_image_summaries(
         network, stereo)
     add = compile_list_of_additional_summaries(
@@ -249,8 +264,9 @@ def get_output_directory(configuration_dict, flags):
     the checkpoints and the writer directories.
     """
 
-    writer_directory = '{}{}/'.format(
-        configuration_dict['output_dir'],
+    cfg_name = flags.config_file.split('/')[-1].split('.')[0]
+    writer_directory = '{}{}/{}/'.format(
+        configuration_dict['output_dir'], cfg_name,
         flags.name)
 
     # architecture string
