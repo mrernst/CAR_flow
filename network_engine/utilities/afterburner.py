@@ -72,9 +72,12 @@ class DataEssence(object):
     def plot_essentials(arg):
         pass
 
+    def freeze_model(self, path_to_model, path_to_checkpoint):
+        pass
 
-if not(FLAGS.evaluate_ckpt):
-    dataset = dataset.shuffle(buffer_size=CONFIG['buffer_size'])
+
+evaluation_filenames = []
+evaluate_ckpt = False
 
 
 def evaluation(train_it, flnames=evaluation_filenames, tag='Evaluation'):
@@ -149,7 +152,7 @@ def evaluation(train_it, flnames=evaluation_filenames, tag='Evaluation'):
 # evaluating restored checkpoint
 # -----
 
-if FLAGS.evaluate_ckpt:
+if evaluate_ckpt:
     checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIRECTORY)
     if checkpoint and checkpoint.model_checkpoint_path:
         saver.restore(sess, checkpoint.model_checkpoint_path)
