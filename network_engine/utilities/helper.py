@@ -322,6 +322,7 @@ def get_output_directory(configuration_dict, flags):
 
     # make sure the directories exist, otherwise create them
     mkdir_p(checkpoint_directory)
+    mkdir_p(checkpoint_directory + 'evaluation/')
 
     return writer_directory, checkpoint_directory
 
