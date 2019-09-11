@@ -154,8 +154,10 @@ for i in range(N_MAX_OCCLUDERS):
 # -----
 
 class OSMNISTBuilder(object):
-    def __init__(self, n_proliferation=10, num_class=10, shape=[32, 32, 1]):
+    def __init__(self, n_proliferation=10, num_class=10,
+                 shape=[32, 32, 1], centered_target=True):
         self.num_class = num_class
+        self.centered_target = centered_target
         self.n_per_class, self.remainder = divmod(
             n_proliferation, num_class - 1)
         self.n_proliferation = n_proliferation
@@ -350,11 +352,11 @@ class OSMNISTBuilder(object):
 # ------------
 
 if __name__ == '__main__':
-    builder = OSMNISTBuilder()
+    builder = OSMNISTBuilder(centered_target=True)
     builder.build('./OS-MNIST_train.tfrecord', 'training')
     builder.build('./OS-MNIST_test.tfrecord', 'testing')
 
-
+# TODO: add the option to make os-mnist without centering the target digit
 # _____________________________________________________________________________
 
 
