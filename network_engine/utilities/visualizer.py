@@ -451,7 +451,7 @@ def create_sprite_image(images):
 def save_sprite_image(savedir, raw_images):
     sprite_image = create_sprite_image(raw_images)
     if sprite_image.shape[2] == 1:
-        plt.imsave(savedir, sprite_image[:, :, 0], cmap='gray')
+        plt.imsave(savedir, sprite_image[:, :, 0], cmap='gray_r')
     else:
         plt.imsave(savedir, sprite_image.astype(np.uint8))
 
