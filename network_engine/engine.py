@@ -151,7 +151,7 @@ class EmbeddingObject(object):
 
         self.thumbnails = tf.Variable(tf.zeros(
             shape=[0, self.thu_height, self.thu_height, image_channels],
-            dtype=tf.int16), validate_shape=False,
+            dtype=tf.float32), validate_shape=False,
             name="embedding_thumbnails", trainable=False)
 
         update_embedding_labels = tf.compat.v1.assign(self.labels, tf.concat(
@@ -164,7 +164,7 @@ class EmbeddingObject(object):
                     tf.image.resize_with_crop_or_pad(
                         tf.image.resize(
                             inp.variable, [self.thu_height, self.thu_width]),
-                        self.thu_height, self.thu_height), dtype=tf.int16)],
+                        self.thu_height, self.thu_height), dtype=tf.float32)],
                 axis=0), validate_shape=False)
 
         reset_embedding_labels = tf.compat.v1.assign(self.labels, tf.zeros(
@@ -174,7 +174,7 @@ class EmbeddingObject(object):
         reset_embedding_thumbnails = tf.compat.v1.assign(
             self.thumbnails, tf.zeros(
                 shape=[0, self.thu_height, self.thu_height, image_channels],
-                dtype=tf.int16),
+                dtype=tf.float32),
             validate_shape=False)
 
         # TODO: how to do timesteps here without having accuracy?
@@ -496,7 +496,7 @@ else:
 error.create_output(CONFIG['time_depth'] + CONFIG['time_depth_beyond'])
 optimizer.create_output(CONFIG['time_depth'])
 
-for time in range(0, (CONFIG['time_depth'] + CONFIG['time_depth_beyond'] + 1)):
+for time in range(CONFIG['time_depth'] + CONFIG['time_depth_beyond'] + 1):
     accuracy.create_output(time)
 
 
@@ -609,6 +609,138 @@ with tf.compat.v1.Session() as sess:
 
     # training and testing functions
     # -----
+
+    def evaluating(train_it, flnames=evaluation_filenames, tag='Evaluation'):
+        print(" " * 80 + "\r" + "[{}]\tstarted".format(tag), end="\r")
+        sess.run([iterator.initializer, testaverages.reset, embedding.reset],
+                 feed_dict={filenames: flnames})
+
+        list_of_output_values = []
+        list_of_output_tensors = []
+        list_of_bc_values = []
+        for time in network.outputs:
+            list_of_output_tensors.append(tf.nn.softmax(network.outputs[time]))
+
+        # delete bool_classification file if it already exists
+        # if os.path.exists(CHECKPOINT_DIRECTORY + 'evaluation/' +
+        #                   "bool_classification.txt"):
+        #     os.remove(WRITER_DIRECTORY + 'checkpoints/' +
+        #               'evaluation/' + "bool_classification.txt")
+
+        while True:
+            try:
+                _, _, extras, images, bc, out = sess.run(
+                    [testaverages.update, embedding.update, add_merged,
+                        image_merged, bool_classification,
+                        list_of_output_tensors],
+                    feed_dict={keep_prob.placeholder: 1.0,
+                               is_training.placeholder: False})
+
+                # save output and bool_classification data
+                list_of_output_values.append(out)
+                if CONFIG['label_type'] == "onehot":
+                    list_of_bc_values += bc.astype(np.int8).tolist()
+                else:
+                    for i in range(len(bc[0])):
+                        for el in bc[0][i]:
+                            list_of_bc_values += [int(el in set(bc[1][i]))]
+
+            except (tf.errors.OutOfRangeError):
+                break
+
+        acc, loss, emb, emb_labels, emb_thu, summary = sess.run(
+            [testaverages.average_partial_accuracy[CONFIG['time_depth']],
+                testaverages.average_cross_entropy[CONFIG['time_depth']],
+                embedding.total,
+                embedding.labels,
+                embedding.thumbnails,
+                test_merged])
+
+        print(" " * 80 + "\r" +
+              "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
+              .format(tag, loss, acc, train_it))
+
+
+        # pass labels to write to metafile
+        return emb, emb_labels, emb_thu, \
+            list_of_bc_values, list_of_output_values
+
+    def write_embeddings_to_disk(emb, emb_labels, emb_thu, list_of_bc_values):
+        saver.save(sess, CHECKPOINT_DIRECTORY +
+                   'evaluation/' + CONFIG['exp_name'] +
+                   CONFIG['connectivity'] + CONFIG['dataset'],
+                   global_step=global_step.eval())
+
+        # define custom labels for interesting stimuli
+        lookat = np.zeros(emb_labels.shape, dtype=np.int32)
+        # lookat[-50:] = 1
+
+        emb_labels = np.asarray(emb_labels, dtype=np.int32)
+        # save labels to textfile to be read by tensorboard
+        np.savetxt(CHECKPOINT_DIRECTORY + 'evaluation/'
+                   + "metadata.tsv",
+                   np.column_stack(
+                       [emb_labels,
+                        CONFIG['class_encoding'][emb_labels],
+                        lookat,
+                        list_of_bc_values]),
+                   header="labels\tnames\tlookat\tboolclass",
+                   fmt=["%s", "%s", "%s", "%s"], delimiter="\t", comments='')
+
+        # save thumbnails to sprite image
+        visualizer.save_sprite_image(CHECKPOINT_DIRECTORY +
+                                     'evaluation/' +
+                                     'embedding_spriteimage.png',
+                                     emb_thu[:, :, :, :])
+
+        # configure metadata linking
+        projector_config = projector.ProjectorConfig()
+        embeddings_dict = {}
+
+        for i in range(CONFIG['time_depth'] + CONFIG['time_depth_beyond'] + 1):
+            embeddings_dict[i] = projector_config.embeddings.add()
+            embeddings_dict[i].tensor_name = \
+                embedding.total[i].name
+            embeddings_dict[i].metadata_path = os.path.join(
+                CHECKPOINT_DIRECTORY +
+                'evaluation/', 'metadata.tsv')
+            embeddings_dict[i].sprite.image_path = CHECKPOINT_DIRECTORY + \
+                'evaluation/' + \
+                'embedding_spriteimage.png'
+            embeddings_dict[i].sprite.single_image_dim.extend(
+                [embedding.thu_height, embedding.thu_height])
+
+        tsne_writer = tf.compat.v1.summary.FileWriter(
+            CHECKPOINT_DIRECTORY + 'evaluation/')
+        projector.visualize_embeddings(
+            tsne_writer, projector_config)
+        pass
+
+    def evaluate_data(tsne_bool=False, flnames=evaluation_filenames):
+        # checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIRECTORY)
+        # if checkpoint and checkpoint.model_checkpoint_path:
+        #     saver.restore(sess, checkpoint.model_checkpoint_path)
+        # TODO: Do we really need checkpoint restore?
+        # TODO: maybe evaluation directory is not needed? helper..
+        emb, emb_labels, emb_thu, list_of_bc_values, \
+            list_of_output_values = evaluating(
+                global_step.eval(), flnames=flnames)
+
+        evaluation_data = [list_of_bc_values,
+                           list_of_output_values]
+
+        embedding_data = []
+
+        if tsne_bool:
+            write_embeddings_to_disk(emb, emb_labels, emb_thu,
+                                     list_of_bc_values)
+            embedding_data += [emb, emb_labels, emb_thu]
+        else:
+            pass
+        # else:
+        #     print('[INFO] No checkpoint data found, exiting')
+        #     sys.exit()
+        return evaluation_data, embedding_data
 
     def testing(train_it, flnames=validation_filenames, tag='Validation'):
         print(" " * 80 + "\r" + "[{}]\tstarted".format(tag), end="\r")
@@ -724,10 +856,12 @@ with tf.compat.v1.Session() as sess:
 
     # final test (ideally on an independent testset)
     # -----
-
     testing(train_it, flnames=test_filenames, tag='Testing')
     saver.save(sess, CHECKPOINT_DIRECTORY + CONFIG['exp_name'] +
                FLAGS.name + CONFIG['dataset'], global_step=train_it)
+
+    evaluation_data, embedding_data = evaluate_data(tsne_bool=True,
+                                    flnames=test_filenames[:1])
 
     train_writer.close()
     test_writer.close()
@@ -735,18 +869,14 @@ with tf.compat.v1.Session() as sess:
     add_writer.close()
 
 
-# call the afterburner
+# evaluation and afterburner
 # -----
 
-# reframe the dataset
-
-# open a new Session
-# with tf.compat.v1.Session() as sess:
-#
-#     print('[INFO] new session opened')
-#     essence = afterburner.DataEssence()
-#     essence.evaluate(sess, flnames, CONFIG['tsne_embedding'])
-#     essence.write_to_file()
+    essence = afterburner.DataEssence()
+    essence.distill(evaluation_data=evaluation_data,
+                    embedding_data=embedding_data)
+    essence.write_to_file(dir=CONFIG['wdir'] + 'files/' +
+                          FLAGS.config_file.split('/')[-1].split('.')[0])
 
 
 # _____________________________________________________________________________
