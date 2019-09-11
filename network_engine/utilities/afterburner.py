@@ -86,12 +86,12 @@ class DataEssence(object):
         else:
             pass
 
-        _read_tfevents()
+        self._read_tfevents()
         pass
 
 
 
-    def _read_tfevents(arg):
+    def _read_tfevents(self):
         pass
     # # save output of boolean comparison
     # boolfile = open(WRITER_DIRECTORY + 'checkpoints/' +
@@ -113,7 +113,7 @@ class DataEssence(object):
     #                     'softmax_output.npz',
     #                     np.array(list_of_output_values))
 
-    def plot_essentials(arg):
+    def plot_essentials(self):
         pass
 
 
