@@ -159,9 +159,9 @@ def convert_to_tf_record(data_directory: str):
         reshape=False
     )
 
-    convert_to(mnist.validation, 'validation', data_directory)
+    convert_to(mnist.validation, 'validation', data_directory, num_shards=10)
     convert_to(mnist.train, 'train', data_directory, num_shards=10)
-    convert_to(mnist.test, 'test', data_directory)
+    convert_to(mnist.test, 'test', data_directory, num_shards=10)
 
 
 if __name__ == '__main__':
