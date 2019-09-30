@@ -29,3 +29,6 @@ Temporary Items
 .tfrecord
 
 __pycache__
+
+experiments/*
+utilities/tsne/*
