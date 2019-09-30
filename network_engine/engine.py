@@ -660,7 +660,6 @@ with tf.compat.v1.Session() as sess:
               "[{}]\tloss: {:.5f}\tacc: {:.5f} \tstep: {}"
               .format(tag, loss, acc, train_it))
 
-
         # pass labels to write to metafile
         return emb, emb_labels, emb_thu, \
             list_of_bc_values, list_of_output_values
