@@ -117,7 +117,7 @@ class SbatchDocument(object):
             '       --testrun=false \ \n' + \
             '       --restore_ckpt=true \ \n' + \
             '       --config_file ${config_array[$j]}\n' + \
-            '       --name iteration$i\n' + \
+            '       --name i$i\n' + \
             'done \n'
 
         footer = \

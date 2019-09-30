@@ -46,6 +46,8 @@
 # -----
 import tensorflow as tf
 import numpy as np
+import pickle
+import os
 
 # custom functions
 # -----
@@ -67,50 +69,28 @@ class DataEssence(object):
 
     def __init__(self):
         super(DataEssence, self).__init__()
-        self.essence = {}
-        self.plot = {}
 
-    def generate(self, config_dict):
-        self.datacore = {}
-        pass
+    def write_to_file(self, filename):
+        with open(filename, 'wb') as output:  # Overwrites any existing file.
+            pickle.dump(self.essence, output, pickle.HIGHEST_PROTOCOL)
 
-    def write_to_file(self, dir):
-        pass
+    def read_from_file(self, filename):
+        with open(filename, 'rb') as input:
+            self.essence = pickle.load(input)
 
-    def read_from_file(self, path_to_essence):
-        pass
-
-    def distill(self, evaluation_data, embedding_data=None):
+    def distill(self, path, evaluation_data, embedding_data=None):
+        self.essence = self._read_tfevents(path)
+        self.essence['evaluation'] = evaluation_data
         if embedding_data:
+            # TODO: implement embedding data
             pass
-        else:
-            pass
 
-        self._read_tfevents()
-        pass
+    def _read_tfevents(self, path):
+        em = tfevent_handler.read_multiple_runs(path)
+        df = tfevent_handler.convert_em_to_df(em)
+        return df
 
-    def _read_tfevents(self):
-        pass
-    # # save output of boolean comparison
-    # boolfile = open(WRITER_DIRECTORY + 'checkpoints/' +
-    #                 'evaluation/' + "bool_classification.txt", "a")
-    #
-    # if CONFIG['label_type'] == "onehot":
-    #     for i in list(bc):
-    #         boolfile.write(str(int(i)) + '\n')
-    # else:
-    #     for i in range(len(bc[0])):
-    #         for el in bc[0][i]:
-    #             boolfile.write(
-    #                 str(int(el in set(bc[1][i]))) + '\t')
-    #         boolfile.write('\n')
-    # boolfile.close()
-
-    # np.savez_compressed(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
-    #                     'softmax_output.npz',
-    #                     np.array(list_of_output_values))
-
-    def plot_essentials(self):
+    def plot_essentials(self, path):
         pass
 
 
@@ -121,13 +101,28 @@ class EssenceCollection(object):
         super(EssenceCollection, self).__init__()
         self.collection = self.collect_data_essences()
 
-    def collect_data_essences(path_to_experiment):
+    def collect_data_essences(self, path_to_experiment):
         # gather and read all files in files/essence/
-        mkdir_p(path_to_experiment + 'files/essence/')
         collection = {}
+        essence = DataEssence()
+        path_to_data = path_to_experiment + "/data"
+        for file in os.listdir(path_to_data):
+            if file.endswith(".pkl"):
+                essence.read_from_file(os.path.join(path_to_data, file))
+                collection[file.split('.')[0]] = essence.essence
+                # delete file
+                # os.rm(os.path.join(path_to_data, file))
         return collection
 
-    def plot_essentials():
+    def write_to_file(self, filename):
+        with open(filename, 'wb') as output:  # Overwrites any existing file.
+            pickle.dump(self.essence, output, pickle.HIGHEST_PROTOCOL)
+
+    def read_from_file(self, filename):
+        with open(filename, 'rb') as input:
+            self.essence = pickle.load(input)
+
+    def plot_essentials(self):
         pass
 
 
@@ -148,7 +143,26 @@ if __name__ == '__main__':
     print('[INFO] afterburner running, collecting data')
     ess_coll = EssenceCollection(FLAGS.path_to_experiment)
     ess_coll.plot_essentials()
+    ess_coll.write_to_file(FLAGS.path_to_experiment + '/data/')
 
+# # save output of boolean comparison
+# boolfile = open(WRITER_DIRECTORY + 'checkpoints/' +
+#                 'evaluation/' + "bool_classification.txt", "a")
+#
+# if CONFIG['label_type'] == "onehot":
+#     for i in list(bc):
+#         boolfile.write(str(int(i)) + '\n')
+# else:
+#     for i in range(len(bc[0])):
+#         for el in bc[0][i]:
+#             boolfile.write(
+#                 str(int(el in set(bc[1][i]))) + '\t')
+#         boolfile.write('\n')
+# boolfile.close()
+
+# np.savez_compressed(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
+#                     'softmax_output.npz',
+#                     np.array(list_of_output_values))
 
 # _____________________________________________________________________________
 # Description:

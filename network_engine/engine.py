@@ -861,7 +861,7 @@ with tf.compat.v1.Session() as sess:
                FLAGS.name + CONFIG['dataset'], global_step=train_it)
 
     evaluation_data, embedding_data = evaluate_data(tsne_bool=True,
-                                    flnames=test_filenames[:1])
+                                                    flnames=test_filenames[:1])
 
     train_writer.close()
     test_writer.close()
@@ -873,11 +873,11 @@ with tf.compat.v1.Session() as sess:
 # -----
 
     essence = afterburner.DataEssence()
-    essence.distill(evaluation_data=evaluation_data,
+    essence.distill(path=WRITER_DIRECTORY, evaluation_data=evaluation_data,
                     embedding_data=embedding_data)
-    essence.write_to_file(dir=CONFIG['wdir'] + 'files/' +
-                          FLAGS.config_file.split('/')[-1].split('.')[0])
-
+    essence.write_to_file(filename=CONFIG['output_dir'] +
+                          FLAGS.config_file.split('/')[-1].split('.')[0] +
+                          '{}'.format(FLAGS.name) + '.pkl')
 
 # _____________________________________________________________________________
 
