@@ -89,8 +89,6 @@ class DataEssence(object):
         self._read_tfevents()
         pass
 
-
-
     def _read_tfevents(self):
         pass
     # # save output of boolean comparison
@@ -107,7 +105,6 @@ class DataEssence(object):
     #                 str(int(el in set(bc[1][i]))) + '\t')
     #         boolfile.write('\n')
     # boolfile.close()
-
 
     # np.savez_compressed(WRITER_DIRECTORY + 'checkpoints/' + 'evaluation/' +
     #                     'softmax_output.npz',
