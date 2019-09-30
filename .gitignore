@@ -27,8 +27,9 @@ Temporary Items
 .apdisk
 
 .tfrecord
-
 __pycache__
+tfrecord-files
 
+# Directories that will be filled by code
 experiments/*
 utilities/tsne/*
