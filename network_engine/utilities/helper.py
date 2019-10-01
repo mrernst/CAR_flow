@@ -332,7 +332,7 @@ def get_input_directory(configuration_dict):
     get_input_directory takes a dict configuration_dict and returns a path to
     the image_data and a parser for the tf_records files.
     """
-
+    # TODO: Integrate CIFAR and FashionMNIST
     if configuration_dict['dataset'] == "osycb":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'osycb/tfrecord-files/{}occ/{}p/{}/'.format(
