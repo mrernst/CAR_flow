@@ -58,7 +58,7 @@ import cv2
 tf.app.flags.DEFINE_boolean('fashion', False,
                             'use fashion_mnist instead')
 tf.app.flags.DEFINE_integer('n_proliferation', 10,
-                        'number of generated samples per sample')
+                            'number of generated samples per sample')
 tf.app.flags.DEFINE_boolean('centered_target', False,
                             'center target in the middle, additional cue')
 

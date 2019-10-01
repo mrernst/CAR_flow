@@ -468,7 +468,6 @@ def infer_additional_parameters(configuration_dict):
             ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
              'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
 
-
     if configuration_dict['color'] == 'grayscale':
         configuration_dict['image_channels'] = 1
     if configuration_dict['stereo']:
