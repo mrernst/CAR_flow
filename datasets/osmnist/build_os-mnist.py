@@ -49,6 +49,20 @@ import numpy as np
 from pdb import set_trace
 import cv2
 
+# commandline arguments
+# -----
+
+# FLAGS
+
+
+tf.app.flags.DEFINE_boolean('fashion', False,
+                            'use fashion_mnist instead')
+tf.app.flags.DEFINE_integer('n_proliferation', 10,
+                        'number of generated samples per sample')
+tf.app.flags.DEFINE_boolean('centered_target', False,
+                            'center target in the middle, additional cue')
+
+FLAGS = tf.app.flags.FLAGS
 
 # constants and robot parameters
 # -----
@@ -109,22 +123,35 @@ def pad_to32(img, shape=[32, 32]):
     return result
 
 
-def random_crop(img, shape=32, occludernumber=2):
-    forced_offset = 0
-    i, j = np.random.choice(np.concatenate([
-        np.arange(0 + occludernumber, 12 - forced_offset),
-        np.arange(12 + forced_offset, 25 - occludernumber)]), 2)
-    i = 12 - int(round(((OCC_SHIFT[occludernumber]/2) + 0.025) *
-                       ((28+(shape-28)/2))))  # (28+(32-28)/2)
-    jr = j + int(round(OCC_SHIFT[occludernumber]*((28+(shape-28)/2))))
-    return img[i: i + shape, j: j + shape], img[i: i + shape, jr: jr + shape]
-
-
 def pad_to56(img, shape=[56, 56]):
     '''shape=[h, w]'''
     result = np.zeros(shape)
     result[14:42, 14:42] = img
     return result
+
+
+def pad_to42(img, shape=[42, 42]):
+    '''shape=[h, w]'''
+    result = np.zeros(shape)
+    result[7:35, 7:35] = img
+    return result
+
+
+def random_crop(img, lshape=56, cshape=32, occludernumber=2,
+                vfloor=True, forced_offset=0):
+    halfpoint = ((lshape - cshape) // 2)
+    sizediff = (lshape - cshape)
+
+    i, j = np.random.choice(np.concatenate([
+        np.arange(0 + occludernumber, halfpoint - forced_offset),
+        np.arange(halfpoint + forced_offset,
+                  sizediff + 1 - occludernumber)]), 2)
+    if vfloor:
+        i = halfpoint - int(round(((OCC_SHIFT[occludernumber]/2) + 0.025) *
+                            ((28+(cshape-28)/2))))  # (28+(32-28)/2)
+    jr = j + int(round(OCC_SHIFT[occludernumber]*((28+(cshape-28)/2))))
+    return img[i: i + cshape, j: j + cshape], \
+        img[i: i + cshape, jr: jr + cshape]
 
 
 def distancetoangle(object_distance):
@@ -155,7 +182,8 @@ for i in range(N_MAX_OCCLUDERS):
 
 class OSMNISTBuilder(object):
     def __init__(self, n_proliferation=10, num_class=10,
-                 shape=[32, 32, 1], centered_target=True):
+                 shape=[32, 32, 1], centered_target=True, fashion=False):
+        self.fashion = fashion
         self.num_class = num_class
         self.centered_target = centered_target
         self.n_per_class, self.remainder = divmod(
@@ -252,13 +280,19 @@ class OSMNISTBuilder(object):
         tfr_writer.close()
 
     def _load_mnist(self):
-        (x, y), (x_t, y_t) = tf.keras.datasets.mnist.load_data()
+        if self.fashion:
+            (x, y), (x_t, y_t) = tf.keras.datasets.fashion_mnist.load_data()
+        else:
+            (x, y), (x_t, y_t) = tf.keras.datasets.mnist.load_data()
 
         if len(x.shape) == 3:
             x = np.expand_dims(x, -1)
             x_t = np.expand_dims(x_t, -1)
+
             # diminish test set for testing
             # x_t, y_t = x_t[:100], y_t[:100]
+            # x, y = x[:100], y[:100]
+
         array_size = (x.shape[0], x_t.shape[0])
         x = [x[y == i] for i in range(self.num_class)]
         x_t = [x_t[y_t == i] for i in range(self.num_class)]
@@ -273,16 +307,23 @@ class OSMNISTBuilder(object):
         combined_array_right = np.zeros([32, 32, 4])
 
         # pad the target
-        combined_array_left[:, :, 0] = pad_to32(combined_array[:, :, 0])
-        combined_array_right[:, :, 0] = combined_array_left[:, :, 0]
+        if self.centered_target:
+            combined_array_left[:, :, 0] = pad_to32(combined_array[:, :, 0])
+            combined_array_right[:, :, 0] = combined_array_left[:, :, 0]
+        else:
+            combined_array_left[:, :, 0], combined_array_right[:, :, 0] = \
+                random_crop(pad_to42(combined_array[:, :, 0]),
+                            lshape=42, cshape=32,
+                            occludernumber=0, vfloor=self.centered_target)
         unoccluded_target = combined_array_left[:, :, 0]
         target_pixels = unoccluded_target[unoccluded_target != 0].shape[0]
 
         # Shuffle the occluders
         for dig in range(1, len(labels)):
             combined_array_left[:, :, dig], combined_array_right[:, :, dig] = \
-                random_crop(pad_to56(combined_array[:, :, dig]),
-                            occludernumber=dig)
+                random_crop(pad_to42(combined_array[:, :, dig]),
+                            lshape=42, cshape=32,
+                            occludernumber=dig, vfloor=self.centered_target)
 
         # Make sure there is a notion of occlusion and order
         for dig in range(len(labels)-1):
@@ -352,9 +393,20 @@ class OSMNISTBuilder(object):
 # ------------
 
 if __name__ == '__main__':
-    builder = OSMNISTBuilder(centered_target=True)
-    builder.build('./OS-MNIST_train.tfrecord', 'training')
-    builder.build('./OS-MNIST_test.tfrecord', 'testing')
+    builder = OSMNISTBuilder(
+        centered_target=FLAGS.centered_target,
+        n_proliferation=FLAGS.n_proliferation,
+        fashion=FLAGS.fashion)
+
+    datasetname = 'os'
+    if FLAGS.fashion:
+        datasetname += 'fashion'
+    datasetname += 'mnist'
+    if FLAGS.centered_target:
+        datasetname += 'centered'
+
+    builder.build('./{}_train.tfrecord'.format(datasetname), 'training')
+    builder.build('./{}_test.tfrecord'.format(datasetname), 'testing')
 
 # TODO: add the option to make os-mnist without centering the target digit
 # _____________________________________________________________________________

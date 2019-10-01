@@ -346,13 +346,18 @@ def get_input_directory(configuration_dict):
             'osmnist/tfrecord-files/{}occ/'.format(
             configuration_dict['n_occluders'])
         parser = tfrecord_handler._osmnist_parse_single
+    elif configuration_dict['dataset'] == "osfashionmnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'osmnist/osfashionmnist/tfrecord-files/{}occ/'.format(
+            configuration_dict['n_occluders'])
+        parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "mnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'mnist/tfrecord-files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "fashionmnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'fashionmnist/tfrecord-files/'
+            'mnist/fashionmnist/tfrecord-files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "cifar10":
         tfrecord_dir = configuration_dict['input_dir'] + \
@@ -442,10 +447,6 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['classes'] = 10
         configuration_dict['class_encoding'] = np.array(
             ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
-        if 'fashion' in configuration_dict['dataset']:
-            configuration_dict['class_encoding'] = np.array(
-                ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
-                 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
     elif 'cifar10' in configuration_dict['dataset']:
         configuration_dict['image_height'] = 32
         configuration_dict['image_width'] = 32
@@ -461,6 +462,12 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['classes'] = 10
         configuration_dict['class_encoding'] = np.array(
             ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+
+    if 'fashion' in configuration_dict['dataset']:
+        configuration_dict['class_encoding'] = np.array(
+            ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+             'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
+
 
     if configuration_dict['color'] == 'grayscale':
         configuration_dict['image_channels'] = 1

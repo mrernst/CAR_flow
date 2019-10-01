@@ -51,6 +51,17 @@ import os
 import sys
 from tensorflow.examples.tutorials.mnist import input_data
 
+
+# commandline arguments
+# -----
+
+# FLAGS
+
+tf.app.flags.DEFINE_boolean('fashion', False,
+                            'use fashion_mnist instead')
+
+FLAGS = tf.app.flags.FLAGS
+
 # custom functions
 # -----
 
@@ -153,11 +164,18 @@ def convert_to_tf_record(data_directory: str):
     Args:
         data_directory: The directory where the TFRecord files should be stored
     """
-
-    mnist = input_data.read_data_sets(
-        "/tmp/tensorflow/mnist/input_data",
-        reshape=False
-    )
+    fm_url = 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/'
+    if FLAGS.fashion:
+        mnist = input_data.read_data_sets(
+            "/tmp/tensorflow/mnist/input_data",
+            reshape=False,
+            source_url=fm_url
+        )
+    else:
+        mnist = input_data.read_data_sets(
+            "/tmp/tensorflow/mnist/input_data",
+            reshape=False,
+            )
 
     convert_to(mnist.validation, 'validation', data_directory, num_shards=10)
     convert_to(mnist.train, 'train', data_directory, num_shards=10)
