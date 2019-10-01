@@ -354,6 +354,10 @@ def get_input_directory(configuration_dict):
         tfrecord_dir = configuration_dict['input_dir'] + \
             'fashionmnist/tfrecord-files/'
         parser = tfrecord_handler._mnist_parse_single
+    elif configuration_dict['dataset'] == "cifar10":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'cifar10/tfrecord-files/'
+        parser = tfrecord_handler._cifar10_parse_single
     elif configuration_dict['dataset'] == "osdigit":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'digit_database/tfrecord-files/{}{}/'.format(
@@ -404,6 +408,9 @@ def get_image_files(tfrecord_dir, training_dir, validation_dir, test_dir,
     if len(testing) == 0:
         print('[INFO] No test-set found, using validation-set instead')
         testing += validation
+    elif len(validation) == 0:
+        validation += testing
+        print('[INFO] No validation-set found, using test-set instead')
     return training, validation, testing, evaluation
 
 
@@ -439,6 +446,14 @@ def infer_additional_parameters(configuration_dict):
             configuration_dict['class_encoding'] = np.array(
                 ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
                  'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
+    elif 'cifar10' in configuration_dict['dataset']:
+        configuration_dict['image_height'] = 32
+        configuration_dict['image_width'] = 32
+        configuration_dict['image_channels'] = 3
+        configuration_dict['classes'] = 10
+        configuration_dict['class_encoding'] = np.array(
+            ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog',
+             'frog', 'horse', 'ship', 'truck'])
     else:
         configuration_dict['image_height'] = 32
         configuration_dict['image_width'] = 32
