@@ -181,19 +181,19 @@ class DataEssence(object):
                     self.essence['training']['{}/mean_1'.format(
                         sorted_list_of_keys[i])].tolist(),
                     label=sorted_list_of_keys[i].split('/')[1],
-                    color='blue')
+                    color='tab:blue')
                 ax.plot(
                     self.essence['training']['step'].tolist(),
                     self.essence['training']['{}/min_1'.format(
                         sorted_list_of_keys[i])].tolist(),
                     label=sorted_list_of_keys[i].split('/')[1],
-                    color='blue')
+                    color='tab:blue')
                 ax.plot(
                     self.essence['training']['step'].tolist(),
                     self.essence['training']['{}/max_1'.format(
                         sorted_list_of_keys[i])].tolist(),
                     label=sorted_list_of_keys[i].split('/')[1],
-                    color='blue')
+                    color='tab:blue')
                 ax.fill_between(
                     self.essence['training']['step'],
                     self.essence['training']['{}/mean_1'.format(
@@ -204,7 +204,7 @@ class DataEssence(object):
                         sorted_list_of_keys[i])] -
                     self.essence['training']['{}/stddev_1'.format(
                         sorted_list_of_keys[i])],
-                    color='blue',
+                    color='tab:blue',
                     alpha=0.3
                 )
                 ax.set_title(
