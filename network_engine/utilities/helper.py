@@ -48,6 +48,7 @@ import tensorflow as tf
 import numpy as np
 import csv
 import os
+import sys
 import errno
 import utilities.tfrecord_handler as tfrecord_handler
 import utilities.tfevent_handler as tfevent_handler
@@ -349,6 +350,10 @@ def get_input_directory(configuration_dict):
         tfrecord_dir = configuration_dict['input_dir'] + \
             'mnist/tfrecord-files/'
         parser = tfrecord_handler._mnist_parse_single
+    elif configuration_dict['dataset'] == "fashionmnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'fashionmnist/tfrecord-files/'
+        parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "osdigit":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'digit_database/tfrecord-files/{}{}/'.format(
@@ -363,7 +368,7 @@ def get_input_directory(configuration_dict):
         parser = tfrecord_handler._digits_parse_single
     else:
         print("[INFO] Dataset not defined")
-        pass
+        sys.exit()
 
     return tfrecord_dir, parser
 
@@ -430,6 +435,10 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['classes'] = 10
         configuration_dict['class_encoding'] = np.array(
             ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])
+        if 'fashion' in configuration_dict['dataset']:
+            configuration_dict['class_encoding'] = np.array(
+                ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
+                 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
     else:
         configuration_dict['image_height'] = 32
         configuration_dict['image_width'] = 32
