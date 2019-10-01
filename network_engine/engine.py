@@ -715,7 +715,7 @@ with tf.compat.v1.Session() as sess:
             tsne_writer, projector_config)
         pass
 
-    def evaluate_data(tsne_bool=False, flnames=evaluation_filenames):
+    def evaluate_data(projector_bool=False, flnames=evaluation_filenames):
         # checkpoint = tf.train.get_checkpoint_state(CHECKPOINT_DIRECTORY)
         # if checkpoint and checkpoint.model_checkpoint_path:
         #     saver.restore(sess, checkpoint.model_checkpoint_path)
@@ -725,17 +725,25 @@ with tf.compat.v1.Session() as sess:
             list_of_output_values = evaluating(
                 global_step.eval(), flnames=flnames)
 
-        evaluation_data = [list_of_bc_values,
-                           list_of_output_values]
+        embedding_data = {}
+        # cleanup output-list
+        out_shape = list(np.array(list_of_output_values).shape)
+        out_shape[2] = out_shape[2] * out_shape[0]
+        out_shape = out_shape[1:]
+        list_of_output_values = \
+            np.array(list_of_output_values).reshape(out_shape)
 
-        embedding_data = []
-
-        if tsne_bool:
+        evaluation_data = \
+            {'boolean_classification': np.array(list_of_bc_values),
+             'softmax_output': np.array(list_of_output_values)}
+        if projector_bool:
             write_embeddings_to_disk(emb, emb_labels, emb_thu,
                                      list_of_bc_values)
-            embedding_data += [emb, emb_labels, emb_thu]
+            embedding_data['embedding'] = emb
+            embedding_data['labels'] = emb_labels
+            embedding_data['thumbnails'] = emb_thu
         else:
-            pass
+            embedding_data = None
         # else:
         #     print('[INFO] No checkpoint data found, exiting')
         #     sys.exit()
@@ -859,8 +867,9 @@ with tf.compat.v1.Session() as sess:
     saver.save(sess, CHECKPOINT_DIRECTORY + CONFIG['exp_name'] +
                FLAGS.name + CONFIG['dataset'], global_step=train_it)
 
-    evaluation_data, embedding_data = evaluate_data(tsne_bool=True,
-                                                    flnames=test_filenames[:1])
+    evaluation_data, embedding_data = \
+        evaluate_data(projector_bool=CONFIG['projector'],
+                      flnames=test_filenames[:1])
 
     train_writer.close()
     test_writer.close()
@@ -873,10 +882,14 @@ with tf.compat.v1.Session() as sess:
 
     essence = afterburner.DataEssence()
     essence.distill(path=WRITER_DIRECTORY, evaluation_data=evaluation_data,
-                    embedding_data=embedding_data)
+                    embedding_data=None)  # embedding_data (save space)
     essence.write_to_file(filename=CONFIG['output_dir'] +
                           FLAGS.config_file.split('/')[-1].split('.')[0] +
                           '{}'.format(FLAGS.name) + '.pkl')
+    essence.plot_essentials(CONFIG['output_dir'].rsplit('/', 2)[0] +
+                            '/visualization/' +
+                            FLAGS.config_file.split('/')[-1].split('.')[0] +
+                            '{}'.format(FLAGS.name) + '.pdf')
 
 # _____________________________________________________________________________
 
