@@ -196,9 +196,6 @@ class ExperimentEnvironment(object):
                         "/network_engine/engine.py", self.files_dir +
                         "engine.py")
         shutil.copyfile(self.working_directory +
-                        "/network_engine/afterburner.py", self.files_dir +
-                        "afterburner.py")
-        shutil.copyfile(self.working_directory +
                         "/network_engine/config.py", self.files_dir +
                         "config.py")
         shutil.copytree(self.working_directory +
