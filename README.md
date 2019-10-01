@@ -39,13 +39,14 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 ```bash
 .
 ├── datasets                          
-│   ├── CIFAR10                       # CIFAR10
-│   ├── CIFAR100                      # CIFAR100
-│   ├── ImageNet                      # ImageNet
-│   ├── MNIST                         # MNIST
-│   ├── OS-MNIST                      # OS-MNIST
-│   ├── OS-YCB                        # OS-YCB
-├── network engine                    
+│   ├── cifar10                       # CIFAR10
+│   ├── cifar100                      # CIFAR100
+│   ├── imagenet                      # ImageNet
+│   ├── mnist                         # MNIST
+│   ├── fashionmnist                 # fashion-MNIST
+│   ├── osmnist                      # OS-MNIST
+│   ├── osycb                        # OS-YCB
+├── network_engine                    
 │   ├── input             		        
 │   ├── output             		        
 │   ├── utilities             		    
@@ -56,6 +57,7 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 │   ├── engine.py                     # Main Program
 │   ├── parameters.py                 # Experiment Parameters
 │   ├── run_engine.py                 # Setup and Run Experiments
+├── experiments                   
 ├── LICENSE                           # Apache 2.0 License
 ├── README.md                         # ReadMe File
 └── requirements.txt                  # conda/pip requirements
