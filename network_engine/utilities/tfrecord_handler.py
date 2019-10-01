@@ -315,6 +315,32 @@ def _mnist_parse_single(example_proto):
     return image, image, n_hot, one_hot
 
 
+def _cifar10_parse_single(example_proto):
+    features = {
+        "height": tf.io.FixedLenFeature([], tf.int64),
+        "width": tf.io.FixedLenFeature([], tf.int64),
+        "label": tf.io.FixedLenFeature([], tf.int64),
+        "image_raw": tf.io.FixedLenFeature([], tf.string),
+        "format": tf.io.FixedLenFeature([], tf.string),
+
+    }
+
+    parsed_features = tf.io.parse_single_example(example_proto, features)
+
+    no_classes = 10
+    one_hot = tf.one_hot(parsed_features["label"], no_classes)
+    n_hot = one_hot
+
+    images_encoded = parsed_features["image_raw"]
+    height = parsed_features['height']
+    width = parsed_features['width']
+    image_shape = tf.stack([height, width, 3])
+
+    image_decoded = tf.image.decode_png(images_encoded)
+    image = tf.cast(image_decoded, tf.float32) # tf.reshape(image_decoded, image_shape), tf.float32)
+    return image, image, n_hot, one_hot
+
+
 def decode_bytebatch(raw_bytes):
     return tf.image.decode_jpeg(raw_bytes, channels=3)
 
