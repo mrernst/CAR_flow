@@ -337,7 +337,7 @@ def _cifar10_parse_single(example_proto):
     image_shape = tf.stack([height, width, 3])
 
     image_decoded = tf.image.decode_png(images_encoded)
-    image = tf.cast(image_decoded, tf.float32) # tf.reshape(image_decoded, image_shape), tf.float32)
+    image = tf.cast(image_decoded, tf.float32)
     return image, image, n_hot, one_hot
 
 
