@@ -275,8 +275,10 @@ def _osmnist_parse_single(example_proto):
     images_encoded_l = parsed_features["image_left"]
     images_encoded_r = parsed_features["image_right"]
 
-    image_decoded_l = tf.image.decode_png(images_encoded_l)
-    image_decoded_r = tf.image.decode_png(images_encoded_r)
+    image_decoded_l = tf.cast(
+        tf.image.decode_png(images_encoded_l), tf.float32)
+    image_decoded_r = tf.cast(
+        tf.image.decode_png(images_encoded_r), tf.float32)
 
     segmaps_encoded_l = parsed_features["segmap_left"]
     segmaps_encoded_r = parsed_features["segmap_right"]

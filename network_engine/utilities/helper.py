@@ -336,42 +336,42 @@ def get_input_directory(configuration_dict):
     # TODO: Integrate CIFAR and FashionMNIST
     if configuration_dict['dataset'] == "osycb":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'osycb/tfrecord-files/{}occ/{}p/{}/'.format(
+            'osycb/tfrecord_files/{}occ/{}p/{}/'.format(
             configuration_dict['n_occluders'],
             configuration_dict['occlusion_percentage'],
             configuration_dict['downsampling'])
         parser = tfrecord_handler._osycb_parse_single
     elif configuration_dict['dataset'] == "osmnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'osmnist/tfrecord-files/{}occ/'.format(
+            'osmnist/tfrecord_files/{}occ/'.format(
             configuration_dict['n_occluders'])
         parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "osfashionmnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'osmnist/osfashionmnist/tfrecord-files/{}occ/'.format(
+            'osmnist/osfashionmnist/tfrecord_files/{}occ/'.format(
             configuration_dict['n_occluders'])
         parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "mnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'mnist/tfrecord-files/'
+            'mnist/tfrecord_files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "fashionmnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'mnist/fashionmnist/tfrecord-files/'
+            'mnist/fashionmnist/tfrecord_files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "cifar10":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'cifar10/tfrecord-files/'
+            'cifar10/tfrecord_files/'
         parser = tfrecord_handler._cifar10_parse_single
     elif configuration_dict['dataset'] == "osdigit":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'digit_database/tfrecord-files/{}{}/'.format(
+            'digit_database/tfrecord_files/{}{}/'.format(
             configuration_dict['n_occluders']-1,
             configuration_dict['dataset'])
         parser = tfrecord_handler._osdigits_parse_single
     elif configuration_dict['dataset'] == "digit":
         tfrecord_dir = configuration_dict['input_dir'] + \
-            'digit_database/tfrecord-files/{}{}/'.format(
+            'digit_database/tfrecord_files/{}{}/'.format(
             configuration_dict['n_occluders']-1,
             configuration_dict['dataset'])
         parser = tfrecord_handler._digits_parse_single
