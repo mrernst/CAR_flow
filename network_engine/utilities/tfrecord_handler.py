@@ -6,9 +6,9 @@
 #                                                                         _.oo.
 # August 2019                                    _.u[[/;:,.         .odMMMMMM'
 #                                             .o888UU[[[/;:-.  .o@P^    MMM^
-# Filename.py                                oN88888UU[[[/;::-.        dP^
-# Description Description                   dNMMNN888UU[[[/;:--.   .o@P^
-# Description Description                  ,MMMMMMN888UU[[/;::-. o@^
+# tfrecord_handler.py                        oN88888UU[[[/;::-.        dP^
+# manages everything to do                  dNMMNN888UU[[[/;:--.   .o@P^
+# with tfrecord reading                    ,MMMMMMN888UU[[/;::-. o@^
 #                                          NNMMMNN888UU[[[/~.o@P^
 # Markus Ernst                             888888888UU[[[/o@^-..
 #                                         oI8888UU[[[/o@P^:--..
