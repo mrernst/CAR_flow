@@ -67,14 +67,14 @@ def get_par():
 
     par = {}
 
-    par['exp_name'] = ["noname_experiment"]
+    par['exp_name'] = ["mnist_experiment"]
     # par['name'] must be defined as a FLAG to engine, b/c it resembles the
     # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
     par['dataset'] = ["mnist"]
 
-    par['n_occluders'] = [2]
-    par['occlusion_percentage'] = [20]
+    par['n_occluders'] = [0]
+    par['occlusion_percentage'] = [0]
     par['label_type'] = ["onehot"]
     par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BLT']
     par['network_depth'] = [2]
@@ -83,7 +83,7 @@ def get_par():
     par['feature_multiplier'] = [1]
     par['keep_prob'] = [1.0]
 
-    par['stereo'] = [False, True]
+    par['stereo'] = [False]
     par['downsampling'] = ['fine']
     par['color'] = ['grayscale']
     par['cropped'] = [False]
@@ -97,7 +97,7 @@ def get_par():
     par['projector'] = [True]
 
     par['batchsize'] = [100]
-    par['epochs'] = [100]
+    par['epochs'] = [10]
     par['learning_rate'] = [0.003]
 
     return par
