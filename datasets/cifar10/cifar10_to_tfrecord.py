@@ -128,11 +128,11 @@ def float_feature(values):
 
 def image_to_tfexample(image_data, image_format, height, width, class_id):
     return tf.train.Example(features=tf.train.Features(feature={
-      'image/encoded': bytes_feature(image_data),
-      'image/format': bytes_feature(image_format),
-      'image/class/label': int64_feature(class_id),
-      'image/height': int64_feature(height),
-      'image/width': int64_feature(width),
+      'image_raw': bytes_feature(image_data),
+      'format': bytes_feature(image_format),
+      'label': int64_feature(class_id),
+      'height': int64_feature(height),
+      'width': int64_feature(width),
     }))
 
 
