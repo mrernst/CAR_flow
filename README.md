@@ -39,21 +39,24 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 ```bash
 .
 ├── datasets                          
-│   ├── cifar10                       # CIFAR10
-│   ├── cifar100                      # CIFAR100
-│   ├── imagenet                      # ImageNet
-│   ├── mnist                         # MNIST
+│   ├── cifar10                      # CIFAR10
+│   ├── cifar100                     # CIFAR100
+│   ├── imagenet                     # ImageNet
+│   ├── mnist                        # MNIST
 │   ├── fashionmnist                 # fashion-MNIST
 │   ├── osmnist                      # OS-MNIST
 │   ├── osycb                        # OS-YCB
 ├── network_engine                    
-│   ├── input             		        
-│   ├── output             		        
+│   ├── run_engine.py             		        
+│   ├── engine.py
+│   ├── config.py             		                   		        
 │   ├── utilities             		    
-│   │   ├── run_single.py             # description
-│   │   ├── run_single.py             # description
-│   │   ├── run_single.py             # description
-│   │   ├── run_single.py             # description
+│   │   ├── afterburner.py            # description
+│   │   ├── distancemetric.py         # description
+│   │   ├── helper.py                 # description
+│   │   ├── tfevent_handler.py        # description
+│   │   ├── tfrecord_handler.py       # description
+│   │   ├── visualizer.py             # description
 │   ├── engine.py                     # Main Program
 │   ├── parameters.py                 # Experiment Parameters
 │   ├── run_engine.py                 # Setup and Run Experiments
