@@ -94,6 +94,7 @@ def get_par():
     par['buffer_size'] = [20000]
     par['verbose'] = [True]
     par['visualization'] = [True]
+    par['projector'] = [True]
 
     par['batchsize'] = [100]
     par['epochs'] = [100]
