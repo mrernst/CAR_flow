@@ -230,27 +230,29 @@ class EssenceCollection(object):
         # gather and read all files in files/essence/
         collection = {}
         essence = DataEssence()
-        path_to_data = path_to_experiment + "/data"
+        path_to_data = path_to_experiment + "/data/"
         for file in os.listdir(path_to_data):
             if file.endswith(".pkl"):
+                config_name = file.split('.')[0].rsplit('i', 1)[0]
+                iteration_number = file.split('.')[0].rsplit('i', 1)[-1]
                 essence.read_from_file(os.path.join(path_to_data, file))
-                collection[file.split('.')[0]] = essence.essence
+                if config_name in collection.keys():
+                    collection[config_name][iteration_number] = essence.essence
+                else:
+                    collection[config_name] = {}
                 # delete file
                 # os.rm(os.path.join(path_to_data, file))
         return collection
 
     def write_to_file(self, filename):
         with open(filename, 'wb') as output:  # Overwrites any existing file.
-            pickle.dump(self.essence, output, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(self.collection, output, pickle.HIGHEST_PROTOCOL)
 
     def read_from_file(self, filename):
         with open(filename, 'rb') as input:
-            self.essence = pickle.load(input)
+            self.collection = pickle.load(input)
 
-    def plot_essentials(self, filename):
-        pass
-
-    def _plot_barplot_comparison(self):
+    def _plot_barplot_comparison(self, filename):
         pass
 
 
