@@ -169,7 +169,7 @@ def convert_to_tf_record(data_directory: str):
     fm_url = 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/'
     if FLAGS.fashion:
         mnist = input_data.read_data_sets(
-            "/tmp/tensorflow/mnist/input_data",
+            "/tmp/tensorflow/fashionmnist/input_data",
             reshape=False,
             source_url=fm_url
         )
