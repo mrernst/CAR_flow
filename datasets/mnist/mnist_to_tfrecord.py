@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         '--data-directory',
-        default='./tfrecord-files/',
+        default='./tfrecord_files/',
         help='Directory where TFRecords will be stored')
 
     args = parser.parse_args()
