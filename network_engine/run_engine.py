@@ -167,7 +167,7 @@ class ExperimentEnvironment(object):
         try:
             list_of_previous_experiment_folders.sort()
             list_of_previous_experiment_folders.remove(".DS_Store")
-        except():
+        except(ValueError):
             pass
         if len(list_of_previous_experiment_folders) == 0:
             experiment_number = 1
