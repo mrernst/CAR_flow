@@ -103,21 +103,21 @@ class SbatchDocument(object):
             "#SBATCH --mail-user=mernst@fias.uni-frankfurt.de \n" + \
             "#SBATCH --output={}slurm_output/{}_slurm_%j.out \n".format(
                 self.files_dir, self.experiment_name) + \
-            "#SBATCH --array=0-{}%{} \n".format(len(paths_to_config_files)-1,
+            "#SBATCH --array=0-{}%{} \n\n".format(len(paths_to_config_files)-1,
                                                 number_of_gpus)
 
         middle = \
             'config_array={} \n'.format(bash_array) + \
-            'j=${job_array[$((SLURM_ARRAY_TASK_ID))]} \n' + \
+            'j=$((SLURM_ARRAY_TASK_ID)) \n' + \
             'for i in `seq 1 1 {}` \n'.format(self.iterations) + \
             'do \n' + \
             '    echo "iteration $i" \n' + \
             '    echo "job $j" \n' + \
-            '    srun python3 engine.py \ \n' + \
-            '       --testrun=false \ \n' + \
-            '       --restore_ckpt=true \ \n' + \
-            '       --config_file ${config_array[$j]}\n' + \
-            '       --name i$i\n' + \
+            '    srun python3 engine.py' + \
+            ' --testrun=false' + \
+            ' --restore_ckpt=true' + \
+            ' --config_file ${config_array[$j]}' + \
+            ' --name i$i\n' + \
             'done \n'
 
         footer = \
@@ -134,7 +134,8 @@ class SbatchDocument(object):
         pass
 
     def run_sbatch(self):
-        # os.system("sbatch {}/run_experiment.sbatch".format(self.files_dir))
+        os.chdir(self.files_dir)
+        os.system("sbatch run_experiment.sbatch")
         print("sbatch {}run_experiment.sbatch".format(self.files_dir))
         print("[INFO] running {} on cluster".format(self.experiment_name))
         pass
