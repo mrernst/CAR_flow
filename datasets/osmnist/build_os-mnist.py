@@ -61,6 +61,8 @@ tf.app.flags.DEFINE_boolean('fashion', False,
                             'use fashion_mnist instead')
 tf.app.flags.DEFINE_integer('n_proliferation', 10,
                             'number of generated samples per sample')
+tf.app.flags.DEFINE_integer('n_shards', 10,
+                            'number of files for the dataset')
 tf.app.flags.DEFINE_boolean('centered_target', False,
                             'center target in the middle, additional cue')
 
@@ -303,8 +305,8 @@ class OSMNISTBuilder(object):
             x_t = np.expand_dims(x_t, -1)
 
             # diminish test set for testing
-            # x_t, y_t = x_t[:100], y_t[:100]
-            # x, y = x[:100], y[:100]
+            x_t, y_t = x_t[:100], y_t[:100]
+            x, y = x[:100], y[:100]
 
         array_size = (x.shape[0], x_t.shape[0])
         x = [x[y == i] for i in range(self.num_class)]
@@ -407,11 +409,6 @@ class OSMNISTBuilder(object):
 
 if __name__ == '__main__':
     # TODO: replace n_proliferation with shards
-    builder = OSMNISTBuilder(
-        centered_target=FLAGS.centered_target,
-        n_proliferation=FLAGS.n_proliferation,
-        fashion=FLAGS.fashion)
-
     datasetname = 'os'
     if FLAGS.fashion:
         datasetname += 'fashion'
@@ -425,10 +422,19 @@ if __name__ == '__main__':
     path = '{}tfrecord_files/'.format(pathmodifier)
     mkdir_p(path + 'train/')
     mkdir_p(path + 'test/')
-    builder.build(
-        '{}/train/{}_train.tfrecord'.format(path, datasetname), 'training')
-    builder.build(
-        '{}/test/{}_test.tfrecord'.format(path, datasetname), 'testing')
+
+
+    FLAGS.n_proliferation //= FLAGS.n_shards
+    builder = OSMNISTBuilder(
+        centered_target=FLAGS.centered_target,
+        n_proliferation=FLAGS.n_proliferation,
+        fashion=FLAGS.fashion)
+
+    for i in range(FLAGS.n_shards):
+        builder.build(
+            '{}/train/{}_train{}.tfrecord'.format(path, datasetname, i), 'training')
+        builder.build(
+            '{}/test/{}_test{}.tfrecord'.format(path, datasetname, i), 'testing')
 
 # TODO: add the option to make os-mnist without centering the target digit
 # _____________________________________________________________________________
