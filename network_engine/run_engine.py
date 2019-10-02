@@ -44,24 +44,43 @@
 
 # standard libraries
 # -----
-import tensorflow as tf
 import numpy as np
 import os
+import errno
 import shutil
 import csv
 import itertools
+import argparse
+
 
 # custom functions
 # -----
 from config import get_par, get_aux
-from utilities.helper import mkdir_p
+
+def mkdir_p(path):
+    """
+    mkdir_p takes a string path and creates a directory at this path if it
+    does not already exist.
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 # commandline arguments
 # -----
-tf.app.flags.DEFINE_integer('tensorboard_port', 6006,
-                            'port for tensorboard monitoring')
-FLAGS = tf.app.flags.FLAGS
 
+parser = argparse.ArgumentParser()
+parser.add_argument(
+     "-tbp",
+     "--tensorboard_port",
+     type=int,
+     default=6006,
+     help='port for tensorboard monitoring')
+args = parser.parse_args()
 
 class SbatchDocument(object):
     """docstring for SbatchDocument."""
@@ -272,10 +291,13 @@ if __name__ == '__main__':
     # -----
     os.system("screen -dmS tb_monitor")
     os.system("screen -S tb_monitor -p 0 -X stuff \
+        'tf14\n '")
+    os.system("screen -S tb_monitor -p 0 -X stuff \
         'tensorboard --logdir {} --port {}\n '".format(
-        environment.data_dir, FLAGS.tensorboard_port))
+        environment.data_dir, args.tensorboard_port))
     print("[INFO] monitoring {} in tensorboard at port {}".format(
-        environment.experiment_name, FLAGS.tensorboard_port))
+        environment.experiment_name, args.tensorboard_port))
+
 # _____________________________________________________________________________
 # Description:
 #
