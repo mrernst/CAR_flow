@@ -51,7 +51,7 @@ import numpy as np
 
 # custom functions
 # -----
-
+from platform import system
 IS_MACOSX = True if system() == 'Darwin' else False
 PWD_STEM = "/home/mernst/git/" if IS_MACOSX else "/Users/markus/Research/Code/"
 
