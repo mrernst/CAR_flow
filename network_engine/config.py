@@ -53,7 +53,7 @@ import numpy as np
 # -----
 from platform import system
 IS_MACOSX = True if system() == 'Darwin' else False
-PWD_STEM = "/home/mernst/git/" if IS_MACOSX else "/Users/markus/Research/Code/"
+PWD_STEM = "/Users/markus/Research/Code/" if IS_MACOSX else "/home/mernst/git/"
 
 
 # --------------------------
@@ -70,7 +70,7 @@ def get_par():
 
     par = {}
 
-    par['exp_name'] = ["mnist_experiment"]
+    par['exp_name'] = ["noname_experiment"]
     # par['name'] must be defined as a FLAG to engine, b/c it resembles the
     # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
@@ -79,7 +79,7 @@ def get_par():
     par['n_occluders'] = [0]
     par['occlusion_percentage'] = [0]
     par['label_type'] = ["onehot"]
-    par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BLT']
+    par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BT', 'BLT']
     par['network_depth'] = [2]
     par['time_depth'] = [3]
     par['time_depth_beyond'] = [0]
@@ -118,7 +118,7 @@ def get_aux():
     """
 
     aux = {}
-    aux['wdir'] = ["{}".format(PWD_STEM)]
+    aux['wdir'] = ["{}saturn/".format(PWD_STEM)]
     aux['input_dir'] = ["{}saturn/datasets/".format(PWD_STEM)]
     # aux['input_dir'] = ["/home/aecgroup/aecdata/Textures/"]
     aux['output_dir'] = ["{}saturn/experiments/".format(PWD_STEM)]
