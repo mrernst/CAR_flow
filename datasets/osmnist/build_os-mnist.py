@@ -80,6 +80,8 @@ SCALING_ARRAY = np.ones([N_MAX_OCCLUDERS+1, 2])
 
 # custom functions
 # -----
+
+
 def mkdir_p(path):
     """
     mkdir_p takes a string path and creates a directory at this path if it
@@ -92,6 +94,7 @@ def mkdir_p(path):
             pass
         else:
             raise
+
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -305,8 +308,8 @@ class OSMNISTBuilder(object):
             x_t = np.expand_dims(x_t, -1)
 
             # diminish test set for testing
-            x_t, y_t = x_t[:100], y_t[:100]
-            x, y = x[:100], y[:100]
+            # x_t, y_t = x_t[:100], y_t[:100]
+            # x, y = x[:100], y[:100]
 
         array_size = (x.shape[0], x_t.shape[0])
         x = [x[y == i] for i in range(self.num_class)]
@@ -419,7 +422,7 @@ if __name__ == '__main__':
     if FLAGS.centered_target:
         datasetname += 'centered'
 
-    path = '{}tfrecord_files/'.format(pathmodifier)
+    path = '{}tfrecord_files/2occ/'.format(pathmodifier)
     mkdir_p(path + 'train/')
     mkdir_p(path + 'test/')
 
