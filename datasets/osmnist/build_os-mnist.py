@@ -47,7 +47,6 @@
 import tensorflow as tf
 import numpy as np
 from pdb import set_trace
-import cv2
 import os
 import errno
 
