@@ -66,7 +66,6 @@ Project Saturn aims to be a clean rewrite of a toolbox for occluded object recog
 └── requirements.txt                  # conda/pip requirements
 ```
 
-
 ### Installation guide
 
 #### Forking the repository
