@@ -414,7 +414,7 @@ if __name__ == '__main__':
     datasetname = 'os'
     if FLAGS.fashion:
         datasetname += 'fashion'
-        pathmodifier = './fashionmnist/'
+        pathmodifier = './osfashionmnist/'
     else:
         pathmodifier = './'
     datasetname += 'mnist'
@@ -424,6 +424,7 @@ if __name__ == '__main__':
     path = '{}tfrecord_files/2occ/'.format(pathmodifier)
     mkdir_p(path + 'train/')
     mkdir_p(path + 'test/')
+    mkdir_p(path + 'validation/')
 
     FLAGS.n_proliferation //= FLAGS.n_shards
     builder = OSMNISTBuilder(
