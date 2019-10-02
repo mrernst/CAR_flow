@@ -59,7 +59,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 tf.app.flags.DEFINE_boolean('fashion', False,
                             'use fashion_mnist instead')
-tf.app.flags.DEFINE_string('data_directory', "./tfrecord_files/",
+tf.app.flags.DEFINE_string('data_directory', "tfrecord_files/",
                             'Directory where TFRecords will be stored')
 
 FLAGS = tf.app.flags.FLAGS
@@ -185,6 +185,10 @@ def convert_to_tf_record(data_directory: str):
 
 
 if __name__ == '__main__':
+    if FLAGS.fashion:
+        data_dir = '.fashionmnist/' + FLAGS.data_directory
+    else:
+        data_dir = './' + FLAGS.data_directory
     convert_to_tf_record(os.path.expanduser(FLAGS.data_directory))
 
 # _____________________________________________________________________________
