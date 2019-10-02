@@ -52,6 +52,9 @@ import numpy as np
 # custom functions
 # -----
 
+IS_MACOSX = True if system() == 'Darwin' else False
+PWD_STEM = "/home/mernst/git/" if IS_MACOSX else "/Users/markus/Research/Code/"
+
 
 # --------------------------
 # main experiment parameters
@@ -115,10 +118,10 @@ def get_aux():
     """
 
     aux = {}
-    aux['wdir'] = ["/Users/markus/Research/Code/saturn/"]
-    aux['input_dir'] = ["/Users/markus/Research/Code/saturn/datasets/"]
+    aux['wdir'] = ["{}".format(PWD_STEM)]
+    aux['input_dir'] = ["{}saturn/datasets/".format(PWD_STEM)]
     # aux['input_dir'] = ["/home/aecgroup/aecdata/Textures/"]
-    aux['output_dir'] = ["/Users/markus/Research/Code/saturn/experiments/"]
+    aux['output_dir'] = ["{}saturn/experiments/".format(PWD_STEM)]
     # aux['output_dir'] = ["/home/aecgroup/aecdata/Results_python/markus/"]
     aux['network_module'] = ["utilities.networks.simplercnn"]
     aux['norm_by_stat'] = [False]
