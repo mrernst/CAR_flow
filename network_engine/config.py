@@ -79,7 +79,7 @@ def get_par():
     par['n_occluders'] = [0]
     par['occlusion_percentage'] = [0]
     par['label_type'] = ["onehot"]
-    par['connectivity'] = ['B', 'BK', 'BF', 'BL', 'BT', 'BLT']
+    par['connectivity'] = ['B', 'BK', 'BF', 'BT', 'BL', 'BLT']
     par['network_depth'] = [2]
     par['time_depth'] = [3]
     par['time_depth_beyond'] = [0]
@@ -94,7 +94,7 @@ def get_par():
 
     par['write_every'] = [1]
     par['test_every'] = [1]
-    par['buffer_size'] = [20000]
+    par['buffer_size'] = [60000]
     par['verbose'] = [False]
     par['visualization'] = [True]
     par['projector'] = [True]
