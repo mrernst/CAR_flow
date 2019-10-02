@@ -80,7 +80,7 @@ def _data_path(data_directory: str, name: str) -> str:
     if not os.path.isdir(data_directory):
         os.makedirs(data_directory)
 
-    return os.path.join(data_directory, f'{name}.tfrecord')
+    return os.path.join(data_directory, '{}.tfrecord'.format(name))
 
 
 def _int64_feature(value: int) -> tf.train.Features.FeatureEntry:
@@ -118,7 +118,7 @@ def convert_to(data_set, name: str, data_directory: str, num_shards: int = 1):
     """
 
     data_directory = data_directory + name + '/'
-    print(f'Processing {name} data')
+    print('Processing {name} data'.format(name))
 
     images = data_set.images
     labels = data_set.labels
@@ -129,7 +129,7 @@ def convert_to(data_set, name: str, data_directory: str, num_shards: int = 1):
         with tf.io.TFRecordWriter(filename) as writer:
             for index in range(start_idx, end_index):
                 sys.stdout.write(
-                    f"\rProcessing sample {index+1} of {num_examples}")
+                    "\rProcessing sample {} of {}".format(index+1, num_examples))
                 sys.stdout.flush()
 
                 image_raw = images[index].tostring()
@@ -153,7 +153,7 @@ def convert_to(data_set, name: str, data_directory: str, num_shards: int = 1):
             start_index = shard * samples_per_shard
             end_index = start_index + samples_per_shard
             _process_examples(start_index, end_index, _data_path(
-                data_directory, f'{name}-{shard+1}'))
+                data_directory, '{}-{}'.format(name, shard+1)))
 
     print()
 
