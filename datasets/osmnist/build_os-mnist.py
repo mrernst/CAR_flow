@@ -426,7 +426,6 @@ if __name__ == '__main__':
     mkdir_p(path + 'train/')
     mkdir_p(path + 'test/')
 
-
     FLAGS.n_proliferation //= FLAGS.n_shards
     builder = OSMNISTBuilder(
         centered_target=FLAGS.centered_target,
@@ -435,9 +434,11 @@ if __name__ == '__main__':
 
     for i in range(FLAGS.n_shards):
         builder.build(
-            '{}/train/{}_train{}.tfrecord'.format(path, datasetname, i), 'training')
+            '{}/train/{}_train{}.tfrecord'.format(
+                path, datasetname, i), 'training')
         builder.build(
-            '{}/test/{}_test{}.tfrecord'.format(path, datasetname, i), 'testing')
+            '{}/test/{}_test{}.tfrecord'.format(
+                path, datasetname, i), 'testing')
 
 # TODO: add the option to make os-mnist without centering the target digit
 # _____________________________________________________________________________
