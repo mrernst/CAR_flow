@@ -393,6 +393,7 @@ class OSMNISTBuilder(object):
 # ------------
 
 if __name__ == '__main__':
+    # TODO: replace n_proliferation with shards
     builder = OSMNISTBuilder(
         centered_target=FLAGS.centered_target,
         n_proliferation=FLAGS.n_proliferation,
