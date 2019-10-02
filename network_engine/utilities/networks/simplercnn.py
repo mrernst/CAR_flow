@@ -138,7 +138,9 @@ class NetworkClass(bb.ComposedModule):
                     [1, 1, 1, 1], self.net_params['bias_shapes'][0])
         if 'L' in self.net_params['connectivity']:
             with tf.name_scope('lateral_layer_0'):
-                lateral_filter_shape = self.net_params['conv_filter_shapes'][0]
+                # mutability kicked my ass here
+                lateral_filter_shape = \
+                    self.net_params['conv_filter_shapes'][0].copy()
                 tmp = lateral_filter_shape[2]
                 lateral_filter_shape[2] = lateral_filter_shape[3]
                 lateral_filter_shape[3] = tmp
