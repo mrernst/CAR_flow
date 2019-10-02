@@ -59,6 +59,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 tf.app.flags.DEFINE_boolean('fashion', False,
                             'use fashion_mnist instead')
+tf.app.flags.DEFINE_string('data_directory', "./tfrecord_files/",
+                            'Directory where TFRecords will be stored')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -118,7 +120,7 @@ def convert_to(data_set, name: str, data_directory: str, num_shards: int = 1):
     """
 
     data_directory = data_directory + name + '/'
-    print('Processing {name} data'.format(name))
+    print('Processing {} data'.format(name))
 
     images = data_set.images
     labels = data_set.labels
@@ -183,15 +185,7 @@ def convert_to_tf_record(data_directory: str):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        '--data-directory',
-        default='./tfrecord_files/',
-        help='Directory where TFRecords will be stored')
-
-    args = parser.parse_args()
-    convert_to_tf_record(os.path.expanduser(args.data_directory))
+    convert_to_tf_record(os.path.expanduser(FLAGS.data_directory))
 
 # _____________________________________________________________________________
 
