@@ -70,11 +70,11 @@ def get_par():
 
     par = {}
 
-    par['exp_name'] = ["noname_experiment"]
+    par['exp_name'] = ["fmnist_testrun"]
     # par['name'] must be defined as a FLAG to engine, b/c it resembles the
     # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
-    par['dataset'] = ["mnist"]
+    par['dataset'] = ["fashionmnist"]
 
     par['n_occluders'] = [0]
     par['occlusion_percentage'] = [0]
@@ -95,7 +95,7 @@ def get_par():
     par['write_every'] = [1]
     par['test_every'] = [1]
     par['buffer_size'] = [20000]
-    par['verbose'] = [True]
+    par['verbose'] = [False]
     par['visualization'] = [True]
     par['projector'] = [True]
 
