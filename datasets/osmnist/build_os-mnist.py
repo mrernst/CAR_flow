@@ -48,6 +48,8 @@ import tensorflow as tf
 import numpy as np
 from pdb import set_trace
 import cv2
+import os
+import errno
 
 # commandline arguments
 # -----
@@ -76,7 +78,18 @@ SCALING_ARRAY = np.ones([N_MAX_OCCLUDERS+1, 2])
 
 # custom functions
 # -----
-
+def mkdir_p(path):
+    """
+    mkdir_p takes a string path and creates a directory at this path if it
+    does not already exist.
+    """
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -402,12 +415,20 @@ if __name__ == '__main__':
     datasetname = 'os'
     if FLAGS.fashion:
         datasetname += 'fashion'
+        pathmodifier = './fashionmnist/'
+    else:
+        pathmodifier = './'
     datasetname += 'mnist'
     if FLAGS.centered_target:
         datasetname += 'centered'
 
-    builder.build('./{}_train.tfrecord'.format(datasetname), 'training')
-    builder.build('./{}_test.tfrecord'.format(datasetname), 'testing')
+    path = '{}tfrecord_files/'.format(pathmodifier)
+    mkdir_p(path + 'train/')
+    mkdir_p(path + 'test/')
+    builder.build(
+        '{}/train/{}_train.tfrecord'.format(path, datasetname), 'training')
+    builder.build(
+        '{}/test/{}_test.tfrecord'.format(path, datasetname), 'testing')
 
 # TODO: add the option to make os-mnist without centering the target digit
 # _____________________________________________________________________________
