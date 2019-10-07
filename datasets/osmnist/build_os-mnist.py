@@ -250,12 +250,14 @@ class OSMNISTBuilder(object):
                         xl = x[l][index]
                         combined_array = np.concatenate([xi, xo, xl], -1)
                         labels = np.array([i, j, l])
+                        # marker to go on: condition_satisfied = True
                         merged_image_left, merged_image_right,\
                             occlusion_percentage_left,\
                             occlusion_percentage_right,\
                             segmentation_map_left,\
                             segmentation_map_right = \
-                            self._resize_pad_crop_merge(combined_array, labels)
+                            self._resize_pad_crop_merge_rec_cond(
+                                combined_array, labels)
                         self._save(merged_image_left, merged_image_right,
                                    labels, occlusion_percentage_left,
                                    occlusion_percentage_right,
@@ -379,6 +381,23 @@ class OSMNISTBuilder(object):
         return combined_img_left, combined_img_right,\
             occlusion_percentage_left, occlusion_percentage_right,\
             segmap_left, segmap_right
+
+    def _resize_pad_crop_merge_rec_cond(self, combined_array, labels):
+        combined_img_left, combined_img_right,\
+            occlusion_percentage_left,\
+            occlusion_percentage_right,\
+            segmap_left,\
+            segmap_right = \
+            self._resize_pad_crop_merge(combined_array, labels)
+        # find out if occlusion is between .2 and .8
+        o_avg = \
+            (occlusion_percentage_left + occlusion_percentage_right)/2
+        if (o_avg > 0.2) and (o_avg < 0.8):
+            return combined_img_left, combined_img_right,\
+                occlusion_percentage_left, occlusion_percentage_right,\
+                segmap_left, segmap_right
+        else:
+            return _resize_pad_crop_merge_rec_cond(combined_array, labels)
 
     def _save(self, merged_image_left, merged_image_right,
               labels, occlusion_percentage_left, occlusion_percentage_right,
