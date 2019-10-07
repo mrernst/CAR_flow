@@ -257,7 +257,7 @@ class OSMNISTBuilder(object):
                             segmentation_map_left,\
                             segmentation_map_right = \
                             self._resize_pad_crop_merge_rec_cond(
-                                combined_array, labels)
+                                combined_array, labels, cond=[0.2, 0.8])
                         self._save(merged_image_left, merged_image_right,
                                    labels, occlusion_percentage_left,
                                    occlusion_percentage_right,
@@ -382,7 +382,8 @@ class OSMNISTBuilder(object):
             occlusion_percentage_left, occlusion_percentage_right,\
             segmap_left, segmap_right
 
-    def _resize_pad_crop_merge_rec_cond(self, combined_array, labels):
+    def _resize_pad_crop_merge_rec_cond(
+            self, combined_array, labels, cond=[0., 1.]):
         combined_img_left, combined_img_right,\
             occlusion_percentage_left,\
             occlusion_percentage_right,\
@@ -392,12 +393,13 @@ class OSMNISTBuilder(object):
         # find out if occlusion is between .2 and .8
         o_avg = \
             (occlusion_percentage_left + occlusion_percentage_right)/2
-        if (o_avg > 0.2) and (o_avg < 0.8):
+        if (o_avg > cond[0]) and (o_avg < cond[1]):
             return combined_img_left, combined_img_right,\
                 occlusion_percentage_left, occlusion_percentage_right,\
                 segmap_left, segmap_right
         else:
-            return _resize_pad_crop_merge_rec_cond(combined_array, labels)
+            return _resize_pad_crop_merge_rec_cond(
+                combined_array, labels, cond)
 
     def _save(self, merged_image_left, merged_image_right,
               labels, occlusion_percentage_left, occlusion_percentage_right,
