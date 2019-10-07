@@ -48,7 +48,16 @@ import tensorflow as tf
 import numpy as np
 import pickle
 import os
-from matplotlib import pyplot as plt
+import sys
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib.style as mplstyle
+from matplotlib.ticker import MaxNLocator
+from matplotlib import collections
+from matplotlib.patches import Rectangle
+from scipy import stats
+from collections import namedtuple
+from cycler import cycler
 
 # custom functions
 # -----
@@ -264,6 +273,190 @@ class EssenceCollection(object):
         plt.savefig(filename)
         pass
 
+    def _plot_barplot_comparison(self, filename):
+
+        configurations_to_plot = "all"
+
+        # mplstyle.use('default')
+
+        rects = []
+        n_groups = len(self.collection.keys())
+        n_iterations = 100 # high number so that true value is smaller
+        for configuration in self.collection.keys():
+            n_iterations = min(n_iterations, len(self.collection[configuration].keys()))
+
+        n_bars = 1
+        data = np.zeros([n_iterations, n_bars, n_groups])
+        means = np.zeros([n_bars, n_groups])
+        stderror = np.zeros([n_bars, n_groups])
+        mcnemar_data = {}
+        evaluation_iteration = 1
+
+        list_of_configurations = list(self.collection.keys())
+        list_of_configurations.sort()
+
+
+        for j,configuration in enumerate(list_of_configurations):
+            list_of_iterations = list(self.collection['config{}'.format(j)].keys())
+            list_of_iterations.sort()
+
+            for it, iteration in enumerate(list_of_iterations):
+                data[it,0,j] = 1 - self.collection[configuration][iteration]['testing']['testtime/partial_accuracy'].values[-1]
+                mcnemar_data[it,0,j] = self.collection[configuration][iteration]['evaluation']['boolean_classification']
+
+        chancelevel = 1 - 1./10.
+
+        means = np.mean(data, axis=0)
+        stderror = np.std(data, axis=0) / np.sqrt(n_iterations)
+
+        # printout
+        # -----
+        print((means).round(3))
+        print((stderror).round(3))
+
+
+        fig, ax = plt.subplots(figsize=[8.0/6*n_groups, 6.0])
+
+        index = np.arange(n_groups)
+        bar_width = 0.8
+
+        opacity = 1
+        error_config = {'ecolor': '0.3'}
+
+        current_palette = sns.dark_palette(sns.color_palette('colorblind')[0], 5, reverse=True)
+        current_palette = sns.dark_palette(sns.color_palette('Set3')[0], 5, reverse=True)
+        current_palette = sns.dark_palette('LightGray', 5, reverse=True)
+        current_palette = sns.dark_palette('Black', 5, reverse=False)
+
+
+        for k in range(n_bars):
+            rects.append(ax.bar(index + k*bar_width, means[k], bar_width,
+                         alpha=opacity,
+                         yerr=stderror[k], error_kw=error_config,
+                         label='{}'.format('configuration'), linewidth=0, color=current_palette[k])) #, edgecolor=current_palette[(k+1)], hatch=hatches[k]))
+
+
+
+        ax.set_xlabel('Network configuration')
+        ax.set_ylabel('Error rate')
+        ax.set_title('experiment: {}'.format(
+            self.path_to_experiment.rsplit('/')[-1]), fontsize=10)
+        ax.set_ylim([0,ax.get_ylim()[1]*1])  # *1.25])
+        ax.set_xticks(index + bar_width * (n_bars/2. - 0.5))
+        # ax.set_xticklabels([arch[:-1] for arch in ARCHARRAY])
+        ax.legend(frameon=True, facecolor='white', edgecolor='white', framealpha=1.0)
+        ax.grid(axis='y', zorder=0, alpha=0.5)
+        ax.set_axisbelow(True)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.tick_params(
+        axis='x',          # changes apply to the x-axis
+        which='both',      # both major and minor ticks are affected
+        bottom=False,      # ticks along the bottom edge are off
+        top=False,         # ticks along the top edge are off
+        labelbottom=True) # labels along the bottom edge are off
+        ax.spines['left'].set_visible(False)
+
+        ax.axhline(y=chancelevel, xmin=0, xmax=6, color='black')
+        ax.text(0.2, chancelevel+0.005, r'chancelevel')
+
+        # Shrink current axis by 20%
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+        # Put a legend to the right of the current axis
+        ax.legend(frameon=True, facecolor='white', edgecolor='white', framealpha=1.0, bbox_to_anchor=(1, .9), loc='center left')
+
+        #mcnemar's table
+        for i in range(n_bars):
+            qstar = 0.05
+            pval = np.ones([n_groups*n_bars, n_groups*n_bars])
+            chi_table = np.ones([n_groups*n_bars, n_groups*n_bars])
+            significance_table = np.zeros([n_groups*n_bars, n_groups*n_bars])
+            vertexlist = []
+            for k in range(n_groups*n_bars):
+                for j in range(n_groups*n_bars):
+                    if k!=j and k>j:
+                    #print(i,j,k,mcnemar_data[(evaluation_iteration-1),i,k].shape, mcnemar_data[(evaluation_iteration-1),i,j].shape)
+                        mcnemar_table = 2*mcnemar_data[(evaluation_iteration-1),i,k] -  mcnemar_data[(evaluation_iteration-1),i,j]
+                        if (len(mcnemar_data[(evaluation_iteration-1),i,k].shape) > 1):  # i.e. nhot encoding
+                            ak = np.sum(np.array([e for e in mcnemar_table == 1.]), axis=1)
+                            bk = np.sum(np.array([e for e in mcnemar_table == 2.]), axis=1)
+                            ck = np.sum(np.array([e for e in mcnemar_table == -1.]), axis=1)
+                            dk = np.sum(np.array([e for e in mcnemar_table == 0]), axis=1)
+                            chi_sq_denom = np.sum(((bk - ck)/mcnemar_table.shape[-1]))**2
+                            chi_sq_count = np.sum(((bk - ck)/mcnemar_table.shape[-1])**2)
+                            chi_sq = chi_sq_denom/chi_sq_count
+                        else:
+                            a = mcnemar_table[mcnemar_table == 1.].shape[0]
+                            b = mcnemar_table[mcnemar_table == 2.].shape[0]
+                            c = mcnemar_table[mcnemar_table == -1.].shape[0]
+                            d = mcnemar_table[mcnemar_table == 0].shape[0]
+                            chi_sq = ((b-c)**2)/(b+c)
+                        pval[k,j] = 1 - stats.chi2.cdf(chi_sq, 1) #stats.chi2.pdf(chi_sq , 1) #
+                        chi_table[k,j] = chi_sq
+
+
+            print(np.round(pval,4))
+            print(np.round(chi_table,4))
+            sorted_pvals = np.sort(pval[pval<1])
+            bjq = np.arange(1,len(sorted_pvals)+1)/len(sorted_pvals)*qstar
+
+            for k in range(n_groups*n_bars):
+                for j in range(n_groups*n_bars):
+                    if k!=j and k>j:
+                        if pval[k,j] in sorted_pvals[sorted_pvals - bjq <= 0]:
+                            significance_table[k,j] = 1
+
+                            if j<3 and k>2 and (means[i][j] < means[i][k]):
+                                vertexlist.append([[j+0.25,k-0.5],[j+0.5,k-0.25],[j+0.5,k-0.5]])
+                        else:
+                            significance_table[k,j] = 0
+
+
+            ax = plt.axes([0.8, 0.3, .2, .2])
+            ax.matshow(significance_table, cmap='Greys')
+            #ax.set_title("McNemar's Test {} {}".format(PERCENTAGE[i],h))
+            #ax.set_xticklabels([''] + [arch[:-1] for arch in ARCHARRAY], fontsize=8)#fontsize=65)
+            ax.tick_params(labelbottom='on',labeltop='off', top='off', right='off')
+            #ax.set_yticklabels([arch[:-1] for arch in ARCHARRAY], fontsize=8) #fontsize=65)
+            ax.set_xlim([-0.5, n_groups*n_bars -1-0.5])
+            ax.set_ylim([n_groups*n_bars-0.5, -0.5+1])
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+
+            ax.axhline(y=2.5, xmin=-0.5, xmax=2.5, color='white', linewidth=1)
+            ax.axvline(x=2.5, ymin=-0.5, ymax=2.5, color='white', linewidth=1)
+            for vertices in vertexlist:
+                pc = collections.PolyCollection((vertices,), color='white', edgecolor="none")
+                ax.add_collection(pc)
+
+            ax.add_patch(Rectangle((-2.5, 6.9), 1, 1, fill='black', color='black', alpha=1, clip_on=False))
+            ax.text(-4,9.4, 'Significant difference \n(two-sided McNemar test, \nexpected FDR=0.05)', fontsize=8, horizontalalignment='left', verticalalignment='center')
+            #plt.show()
+            plt.savefig(filename)
+
+
+
+            fig, ax = plt.subplots(figsize=(12,12))
+            ax.matshow(significance_table, cmap='Greys')
+            #ax.set_title("McNemar's Test {} {}".format(PERCENTAGE[i],h))
+            #ax.set_xticklabels([''] + [arch[:-1] for arch in ARCHARRAY],fontsize=65)
+            ax.tick_params(labelbottom='on',labeltop='off', top='off', right='off')
+            #ax.set_yticklabels([arch[:-1] for arch in ARCHARRAY],fontsize=65)
+            ax.set_xlim([-0.5, n_groups*n_bars-1-0.5])
+            ax.set_ylim([n_groups*n_bars-0.5, -0.5+1])
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.axhline(y=2.5, xmin=-0.5, xmax=2.5, color='white')
+            ax.axvline(x=2.5, ymin=-0.5, ymax=2.5, color='white')
+            for vertices in vertexlist:
+                pc = collections.PolyCollection((vertices,), color='white', edgecolor="none")
+                ax.add_collection(pc)
+            #ax.set_ylabel('Network Architecture')
+        plt.tight_layout()
+        plt.savefig(filename.rsplit('.',1)[0] + '_sigtable.pdf')
+
+
 
 # TODO: Think about how to implement this, low priority
 def freeze_model(path_to_model, path_to_checkpoint):
@@ -280,9 +473,9 @@ evaluate_ckpt = False
 
 if __name__ == '__main__':
     print('[INFO] afterburner running, collecting data')
-    ess_coll = EssenceCollection(remove_files=False)
+    ess_coll = EssenceCollection(remove_files=True)
 
-    ess_coll.plot_barplot_comparison(
+    ess_coll._plot_barplot_comparison(
         ess_coll.path_to_experiment +
             '/visualization/{}_comparision.pdf'.format(
             ess_coll.path_to_experiment.rsplit('/')[-1]))
@@ -294,291 +487,26 @@ if __name__ == '__main__':
 
 
 
-# ------ plotting to be incorporated
-
-import sys, os
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
-import matplotlib.style
-import matplotlib as mpl
-from matplotlib import collections
-from matplotlib.patches import Rectangle
-from scipy import stats
-
-COLORSCHEME = "color"
-PROJECTDIR = '/home/aecgroup/aecdata/Results_python/markus/stereommnist_all/'
-
-
-from collections import namedtuple
-from cycler import cycler
-
-
-if COLORSCHEME == "monochrome":
-    mpl.style.use('classic')
-    #lines.lineStyles.keys()
-    #markers.MarkerStyle.markers.keys()
-    # Create cycler object. Use any styling from above you please
-    monochrome = (cycler('color', ['k']) * cycler('linestyle', ['-', '--', ':', '=.']) * cycler('marker', ['^',',', '.']))
-
-
-    #bar_cycle = (cycler('hatch', ['///', '--', '...','\///', 'xxx', '\\\\']) * cycler('color', 'w')*cycler('zorder', [10]))
-    bar_cycle = (cycler('hatch', ['/', '--', '...','\///', 'xx', '\\']) * cycler('color', 'w')*cycler('zorder', [10]))
-    bar_cycle = (cycler('hatch', ['/', '//', '///','////']) * cycler('color', 'w')*cycler('zorder', [10]))
-    #bar_cycle = (cycler('hatch', ['', '', '','', '', '']) * cycler('color', 'w')*cycler('zorder', [10]))
-
-    styles = bar_cycle()
-
-else:
-    mpl.style.use('default')
-    #mpl.rcParams['errorbar.capsize'] = 3
-    #mpl.rcParams['hatch.color'] = "white"
-    #hatches = ["/////", '\\\\\\\\\\' , "/////"]
-    hatches = ["////","/////","/////","/////"]
-
-    import seaborn as sns
-    current_palette = sns.cubehelix_palette(5, start=2.15, rot=-.005)
-    current_palette = sns.color_palette("Blues")
-    current_palette = sns.color_palette("colorblind")
-    sns.set_palette(current_palette)
-
-sys.path.insert(0, '/home/mernst/git/aec-py/network/helper/')
-
-from read_tfevent import convert_em_to_df, read_multiple_runs
-
-
-
-HOT_ENC = ["nhot"]
-HOT_ENC = ["onehot"]
-
-HOT_LABELS = ["_labels"]
-
-PERCENTAGE = ["20p", "40p", "60p", "80p"]
-PERCENTAGE = ["Xp"]
-BATCHNORM = ["BN"]
-INPUT = ["monocular", "binocular"]# ["monocular", "binocular", "binocular"] #["monocular", "monocular", "binocular", "binocular"]
-
-ARCHARRAY = ['B0', 'BF0', 'BK0', 'BT3', 'BL3', 'BLT3']
-ARCHNAMES = ['B0', 'B-F0', 'B-K0', 'BT3', 'BL3', 'BLT3']
-COLOR = ['grayscale','grayscale']
-#ARCHARRAY = ['B0']
-OCCARRAY = [1]
-ITERATIONS = 5
-
-EVALITER = 1
-
+#
+# HOT_ENC = ["nhot"]
+# HOT_ENC = ["onehot"]
+#
+# HOT_LABELS = ["_labels"]
+#
+# PERCENTAGE = ["20p", "40p", "60p", "80p"]
+# PERCENTAGE = ["Xp"]
+# BATCHNORM = ["BN"]
+# INPUT = ["monocular", "binocular"]# ["monocular", "binocular", "binocular"] #["monocular", "monocular", "binocular", "binocular"]
+#
+# ARCHARRAY = ['B0', 'BF0', 'BK0', 'BT3', 'BL3', 'BLT3']
+# ARCHNAMES = ['B0', 'B-F0', 'B-K0', 'BT3', 'BL3', 'BLT3']
+# COLOR = ['grayscale','grayscale']
+# #ARCHARRAY = ['B0']
+# OCCARRAY = [1]
+# ITERATIONS = 5
+#
+# evaluation_iteration = 1
 #ITERATIONS = 1
-for inp in range(len(INPUT)):
-  for h in range(len(HOT_ENC)):
-
-    rects = []
-    n_groups = len(ARCHARRAY)
-    n_bars = len(PERCENTAGE)
-    data = np.zeros([ITERATIONS, len(PERCENTAGE), n_groups])
-    means = np.zeros([len(PERCENTAGE), n_groups])
-    stderror = np.zeros([len(PERCENTAGE), n_groups])
-
-    mcnemar_data = {}
-
-    i = 0
-    j = 0
-    for it in range(ITERATIONS):
-      for i in range(n_bars):
-        for j in range(n_groups):
-          DATADIR = PROJECTDIR + "data/iteration{}/without_offset/{}_2layer_fm1_d1.0_bn1_bs400_lr0.003/multimnist_2occ_{}_Xcm/32x32_{}_grayscale_{}/validation/".format((it + 1), ARCHARRAY[j], (PERCENTAGE)[i], INPUT[inp], HOT_ENC[h])
-          EVALDIR = PROJECTDIR + "data/iteration{}/without_offset/{}_2layer_fm1_d1.0_bn1_bs400_lr0.003/multimnist_2occ_{}_Xcm/32x32_{}_grayscale_{}/checkpoints/evaluation/".format((it + 1), ARCHARRAY[j], (PERCENTAGE)[i], INPUT[inp], HOT_ENC[h])
-          if it==(EVALITER-1):
-            mcnemar_data[it,i,j] = np.loadtxt(EVALDIR + 'bool_classification.txt', dtype=bool)
-            if mcnemar_data[it,i,j].all() or (~mcnemar_data[it,i,j]).all():
-              print('found one {},{},{},{}'.format(ARCHARRAY[j], INPUT[inp], COLOR[inp], HOT_ENC[h]))
-
-            #DATADIR = PROJECTDIR + "data/iteration{}/default/{}_2layer_fm2_d1.0_bn1_bs100_lr0.1-0.1-40.0/db2_2occ_{}_50cm/32x32_{}_color_{}/validation/".format((it + 1), ARCHARRAY[j], (PERCENTAGE)[i], INPUT[inp], HOT_ENC[h])
-            #print(DATADIR)
-            #DATADIR = "/home/aecgroup/aecdata/Results_python/markus/SpNet_{}lr0.003{}_YCBdb2_i{}/2occ/{}/ds4/{}/{}/color/validation/".format(ARCHARRAY[j],(BATCHNORM)[0],  (it + 1), (PERCENTAGE)[i], HOT_ENC[h], INPUT[inp])
-          multiplexer = read_multiple_runs(DATADIR)
-          dataframe_dict = convert_em_to_df(multiplexer)
-          if HOT_ENC[h]=='nhot':
-              data[it,i, j] += 1 - dataframe_dict['.']['mean_test_time/testtime_avg_accuracy_labels'].values[-1]
-              chancelevel = 1 - 0.0375
-          else:
-              data[it,i, j] += 1 - dataframe_dict['.']['mean_test_time/testtime_avg_accuracy'].values[-1]
-              chancelevel = 1 - 0.0125
-
-    means = np.mean(data, axis=0)
-    stderror = np.std(data, axis=0) / np.sqrt(ITERATIONS)
-
-    #########################
-    # printout to fill tables
-    print(inp, HOT_ENC[h])
-    print((means).round(3))
-    print((stderror).round(3))
-    #########################
-
-
-    fig, ax = plt.subplots()
-
-    index = np.arange(n_groups)
-    bar_width = 0.8 #0.2
-
-    opacity = 1
-    error_config = {'ecolor': '0.3'}
-    current_palette = sns.dark_palette(sns.color_palette('colorblind')[0], 5, reverse=True)
-    current_palette = sns.dark_palette(sns.color_palette('Set3')[0], 5, reverse=True)
-    current_palette = sns.dark_palette('LightGray', 5, reverse=True)
-
-
-    for k in range(n_bars):
-      if COLORSCHEME=="monochrome":
-        rects.append(ax.bar(index[:3] + k*bar_width, means[k][:3], bar_width,
-                     alpha=opacity, **next(styles),
-                     yerr=stderror[k][:3], error_kw=error_config,
-                     label='{}'.format('feedforward'), linewidth=1))
-      else:
-        rects.append(ax.bar(index[:3] + k*bar_width, means[k][:3], bar_width,
-                     alpha=opacity,
-                     yerr=stderror[k][:3], error_kw=error_config,
-                     label='{}'.format('feedforward'), linewidth=0, color=current_palette[k])) #, edgecolor=current_palette[(k+1)], hatch=hatches[k]))
-    current_palette = sns.dark_palette(sns.color_palette('colorblind')[1], 5, reverse=True)
-    current_palette = sns.dark_palette(sns.color_palette('Set3')[2], 5, reverse=True)
-    current_palette = sns.dark_palette('Black', 5, reverse=False)
-    light_palette = sns.dark_palette('LightGray', 5, reverse=True)
-    dark_palette = sns.dark_palette('Black', 5, reverse=False)
-
-
-    for k in range(n_bars):
-      if COLORSCHEME=="monochrome":
-        rects.append(ax.bar(index[3:] + k*bar_width, means[k][3:], bar_width,
-                     alpha=opacity, **next(styles),
-                     yerr=stderror[k][3:], error_kw=error_config,
-                     label='{}'.format('recurrent'), linewidth=1))
-      else:
-        rects.append(ax.bar(index[3:] + k*bar_width, means[k][3:], bar_width,
-                     alpha=opacity,
-                     yerr=stderror[k][3:], error_kw=error_config,
-                     label='{}'.format('recurrent'), linewidth=0, color=current_palette[k])) #, edgecolor=current_palette[(k+1)], hatch=hatches[k]))
-
-
-
-    ax.set_xlabel('Network architecture')
-    ax.set_ylabel('Error rate')
-    ax.set_title('Stereo MultiMNIST (32x32), {}, {}, {}'.format(INPUT[inp], COLOR[inp],HOT_ENC[h]), fontsize=10)
-    # ax.set_xticks(index + bar_width * 1)
-    ax.set_ylim([0,ax.get_ylim()[1]*1])#*1.25])
-    ##ax.set_ylim([0,ax.get_ylim()[1]])
-    ax.set_xticks(index + bar_width * (len(PERCENTAGE)/2. - 0.5))
-    ax.set_xticklabels([arch[:-1] for arch in ARCHARRAY])
-    ax.legend(frameon=True, facecolor='white', edgecolor='white', framealpha=1.0)
-    ax.grid(axis='y', zorder=0, alpha=0.5)
-    ax.set_axisbelow(True)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    #ax.spines['bottom'].set_visible(False)
-    ax.tick_params(
-    axis='x',          # changes apply to the x-axis
-    which='both',      # both major and minor ticks are affected
-    bottom=False,      # ticks along the bottom edge are off
-    top=False,         # ticks along the top edge are off
-    labelbottom=True) # labels along the bottom edge are off
-    ax.spines['left'].set_visible(False)
-
-    ax.axhline(y=chancelevel, xmin=0, xmax=6, color='black')
-    ax.text(0.2, chancelevel+0.005, r'chancelevel')
-
-    # Shrink current axis by 20%
-    box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-    # Put a legend to the right of the current axis
-    ax.legend(frameon=True, facecolor='white', edgecolor='white', framealpha=1.0, bbox_to_anchor=(1, .9), loc='center left')
-
-    #mcnemar's table
-    for i in range(len(PERCENTAGE)):
-      qstar = 0.05
-      pval = np.ones([len(ARCHARRAY),len(ARCHARRAY)])
-      chi_table = np.ones([len(ARCHARRAY),len(ARCHARRAY)])
-      significance_table = np.zeros([len(ARCHARRAY),len(ARCHARRAY)])
-      vertexlist = []
-      for k in range(len(ARCHARRAY)):
-        for j in range(len(ARCHARRAY)):
-          if k!=j and k>j:
-            #print(i,j,k,mcnemar_data[(EVALITER-1),i,k].shape, mcnemar_data[(EVALITER-1),i,j].shape)
-            mcnemar_table = 2*mcnemar_data[(EVALITER-1),i,k] -  mcnemar_data[(EVALITER-1),i,j]
-            if (h == 'nhot'):
-              ak = np.sum(np.array([e for e in mcnemar_table == 1.]), axis=1)
-              bk = np.sum(np.array([e for e in mcnemar_table == 2.]), axis=1)
-              ck = np.sum(np.array([e for e in mcnemar_table == -1.]), axis=1)
-              dk = np.sum(np.array([e for e in mcnemar_table == 0]), axis=1)
-              chi_sq_denom = np.sum(((bk - ck)/mcnemar_table.shape[-1]))**2
-              chi_sq_count = np.sum(((bk - ck)/mcnemar_table.shape[-1])**2)
-              chi_sq = chi_sq_denom/chi_sq_count
-            else:
-              a = mcnemar_table[mcnemar_table == 1.].shape[0]
-              b = mcnemar_table[mcnemar_table == 2.].shape[0]
-              c = mcnemar_table[mcnemar_table == -1.].shape[0]
-              d = mcnemar_table[mcnemar_table == 0].shape[0]
-              chi_sq = ((b-c)**2)/(b+c)
-            pval[k,j] = 1 - stats.chi2.cdf(chi_sq, 1) #stats.chi2.pdf(chi_sq , 1) #
-            chi_table[k,j] = chi_sq
-
-      print(np.round(pval,4))
-      print(np.round(chi_table,4))
-      sorted_pvals = np.sort(pval[pval<1])
-      bjq = np.arange(1,len(sorted_pvals)+1)/len(sorted_pvals)*qstar
-
-      for k in range(len(ARCHARRAY)):
-        for j in range(len(ARCHARRAY)):
-          if k!=j and k>j:
-            if pval[k,j] in sorted_pvals[sorted_pvals - bjq <= 0]:
-              significance_table[k,j] = 1
-
-              if j<3 and k>2 and (means[i][j] < means[i][k]):
-                vertexlist.append([[j+0.25,k-0.5],[j+0.5,k-0.25],[j+0.5,k-0.5]])
-            else:
-              significance_table[k,j] = 0
-
-
-      ax = plt.axes([0.8, 0.3, .2, .2])
-      ax.matshow(significance_table, cmap='Greys')
-      #ax.set_title("McNemar's Test {} {}".format(PERCENTAGE[i],h))
-      ax.set_xticklabels([''] + [arch[:-1] for arch in ARCHARRAY], fontsize=8)#fontsize=65)
-      ax.tick_params(labelbottom='on',labeltop='off', top='off', right='off')
-      ax.set_yticklabels([arch[:-1] for arch in ARCHARRAY], fontsize=8) #fontsize=65)
-      ax.set_xlim([-0.5, len(ARCHARRAY)-1-0.5])
-      ax.set_ylim([len(ARCHARRAY)-0.5, -0.5+1])
-      ax.spines['top'].set_visible(False)
-      ax.spines['right'].set_visible(False)
-
-      ax.axhline(y=2.5, xmin=-0.5, xmax=2.5, color='white', linewidth=1)
-      ax.axvline(x=2.5, ymin=-0.5, ymax=2.5, color='white', linewidth=1)
-      for vertices in vertexlist:
-        pc = collections.PolyCollection((vertices,), color='white', edgecolor="none")
-        ax.add_collection(pc)
-
-      ax.add_patch(Rectangle((-2.5, 6.9), 1, 1, fill='black', color='black', alpha=1, clip_on=False))
-      ax.text(-2.5,9.4, 'Significant difference \n(two-sided McNemar test, \nexpected FDR=0.05)', fontsize=8, horizontalalignment='left', verticalalignment='center')
-      plt.savefig(PROJECTDIR + 'visualization/plots/YCBdb2_trainwithall_barplot_{}_{}_{}_bw.pdf'.format(HOT_ENC[h],COLOR[inp], INPUT[inp]))
-      plt.show()
-
-
-
-      fig, ax = plt.subplots(figsize=(12,12))
-      ax.matshow(significance_table, cmap='Greys')
-      #ax.set_title("McNemar's Test {} {}".format(PERCENTAGE[i],h))
-      ax.set_xticklabels([''] + [arch[:-1] for arch in ARCHARRAY],fontsize=65)
-      ax.tick_params(labelbottom='on',labeltop='off', top='off', right='off')
-      ax.set_yticklabels([arch[:-1] for arch in ARCHARRAY],fontsize=65)
-      ax.set_xlim([-0.5, len(ARCHARRAY)-1-0.5])
-      ax.set_ylim([len(ARCHARRAY)-0.5, -0.5+1])
-      ax.spines['top'].set_visible(False)
-      ax.spines['right'].set_visible(False)
-      ax.axhline(y=2.5, xmin=-0.5, xmax=2.5, color='white')
-      ax.axvline(x=2.5, ymin=-0.5, ymax=2.5, color='white')
-      for vertices in vertexlist:
-        pc = collections.PolyCollection((vertices,), color='white', edgecolor="none")
-        ax.add_collection(pc)
-      #ax.set_ylabel('Network Architecture')
-      plt.tight_layout()
-    plt.savefig(PROJECTDIR + 'visualization/plots/trainwithall_{}{}_{}_{}_mcnemar_fixed_lrate.pdf'.format(OCCARRAY[i],HOT_ENC[h],COLOR[inp],INPUT[inp]))
-    plt.show()
 
 
 # # save output of boolean comparison
