@@ -64,6 +64,8 @@ tf.app.flags.DEFINE_integer('n_shards', 10,
                             'number of files for the dataset')
 tf.app.flags.DEFINE_boolean('centered_target', False,
                             'center target in the middle, additional cue')
+tf.app.flags.DEFINE_boolean('testrun', False,
+                            'small dataset for testing purposes')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -309,8 +311,9 @@ class OSMNISTBuilder(object):
             x_t = np.expand_dims(x_t, -1)
 
             # diminish test set for testing
-            # x_t, y_t = x_t[:100], y_t[:100]
-            # x, y = x[:100], y[:100]
+            if FLAGS.testrun:
+                x_t, y_t = x_t[:100], y_t[:100]
+                x, y = x[:100], y[:100]
 
         array_size = (x.shape[0], x_t.shape[0])
         x = [x[y == i] for i in range(self.num_class)]
@@ -461,7 +464,7 @@ if __name__ == '__main__':
             '{}/test/{}_test{}.tfrecord'.format(
                 path, datasetname, i), 'testing')
 
-# TODO: add the option to make os-mnist without centering the target digit
+
 # _____________________________________________________________________________
 
 
