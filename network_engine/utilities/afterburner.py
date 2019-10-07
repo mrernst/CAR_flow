@@ -458,7 +458,7 @@ class EssenceCollection(object):
 
             ax.add_patch(Rectangle((-2.5, 6.9), 1, 1, fill='black',
                                    color='black', alpha=1, clip_on=False))
-            ax.text(-4, 9.4, 'Significant difference \n(two-sided McNemar \
+            ax.text(-2.5, 9.4, 'Significant difference \n(two-sided McNemar \
                 test, \nexpected FDR=0.05)',
                     fontsize=8, horizontalalignment='left',
                     verticalalignment='center')
