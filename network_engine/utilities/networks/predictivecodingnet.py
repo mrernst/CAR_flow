@@ -103,8 +103,8 @@ class PredictionError(bb.AddModule):
 
 class FFRepresentation(bb.ComposedModule):
     def define_inner_modules(self, name, name, n_out, is_training, beta_init,
-    gamma_init, ema_decay_rate, activation,
-    filter_shape, strides, bias_shape):
+                             gamma_init, ema_decay_rate, activation,
+                             filter_shape, strides, bias_shape):
         # self.alpha = tf.variable(1.0, trainable=True)
         # self.sigma2 = tf.variable(1.0, trainable=False)
         # self.a = 2*tf.abs(self.alpha) / self.sigma2
@@ -159,6 +159,7 @@ def constructor(name,
         net_param_dict = {}
         receptive_pixels = 3
         n_features = 32
+        net_param_dict['network_depth'] = configuration_dict['network_depth']
 
         return net_param_dict
 
@@ -180,7 +181,7 @@ class NetworkClass(bb.ComposedModule):
         self.net_params = net_param_dict
         self.layers = {}
         # TODO: integrate into net_parameters
-        L = 2
+        L = net_param_dict['network_depth']
 
         with tf.name_scope('initialization'):
             self.layers['image'] = DoNothingModule('image')
@@ -189,23 +190,65 @@ class NetworkClass(bb.ComposedModule):
             self.layers['r_init_0'] = DoNothingModule('r_init_0')
 
             for l in range(L):
-                self.layers['r_init_{}'.format(l+1)] = InitialRepresentation()
+                self.layers['r_init_{}'.format(l+1)] = InitialRepresentation(
+                    name='r_init_{}'.format(l+1),
+                    n_out=,
+                    is_training=,
+                    beta_init=,
+                    gamma_init=,
+                    ema_decay_rate=,
+                    activation=,
+                    filter_shape=,
+                    strides=,
+                    bias_shape=,
+                )
         with tf.name_scope('main_circuit'):
             for l in range(L, 0, -1):
-                self.layers['takelast_for_p_{}'.format(l-1)] = TakeLastInput()
-                self.layers['p_{}'.format(l-1)] = Prediction()
+                self.layers['takelast_p_{}'.format(l-1)] = TakeLastInput('takelast_p_{}')
+                self.layers['p_{}'.format(l-1)] = Prediction(
+                    name='p_{}'.format(l-1),
+                    filter_shape=,
+                    strides=,
+                    output_shape=
+                )
                 if (l > 1):
-                    self.layers['takelast_for_r_fb_{}'.format(l-1)] = TakeLastInput()
-                    self.layers['r_fb_{}'.format(l-1)] = FBRepresentation()
+                    self.layers['takelast_r_fb_{}'.format(l-1)] = TakeLastInput('takelast_r_fb_{}')
+                    self.layers['r_fb_{}'.format(l-1)] = FBRepresentation(
+                        name='r_fb_{}'.format(l-1),
+                        n_out=,
+                        is_training=,
+                        beta_init=,
+                        gamma_init=,
+                        ema_decay_rate=,
+                        activation=,
+                        filter_shape=,
+                        strides=,
+                        bias_shape=
+                    )
             for l in range(L):
-                self.layers['e_{}'.format(l)] = PredictionError()
-                self.layers['r_ff_{}'.format(l+1)] = FFRepresentation()
+                self.layers['e_{}'.format(l)] = PredictionError('e_{}'.format(l))
+                self.layers['r_ff_{}'.format(l+1)] = FFRepresentation(
+                    name='r_ff_{}'.format(l+1),
+                    n_out=,
+                    is_training=,
+                    beta_init=,
+                    gamma_init=,
+                    ema_decay_rate=,
+                    activation=,
+                    filter_shape=,
+                    strides=,
+                    bias_shape=
+                )
                 # weight sharing between init and recurrent modules
                 self.layers['r_ff_{}'.format(l+1)].input_module.input_module.weights = self.layers['r_init_{}'.format(l+1)].input_module.input_module.weights
 
         with tf.name_scope('output_modules'):
-            self.layers['gap'] = bb.GlobalAveragePoolingModule()
-            self.layers['fc0'] = bb.FullyConnectedLayerModule()
+            self.layers['gap'] = bb.GlobalAveragePoolingModule('gap')
+            self.layers['fc0'] = bb.FullyConnectedLayerModule(
+                name='fc0',
+                activation=tf.identity,
+                in_size=,
+                out_size=)
 
 
 
@@ -230,18 +273,18 @@ class NetworkClass(bb.ComposedModule):
             # feedforward pass
             for l in range(L, 0, -1):
                 # init connection
-                self.layers['takelast_for_p_{}'.format(l-1)].add_input(self.layers['init_pool_{}'.format(l)])
+                self.layers['takelast_p_{}'.format(l-1)].add_input(self.layers['init_pool_{}'.format(l)])
                 # recurrent connection
-                self.layers['takelast_for_p_{}'.format(l-1)].add_input(self.layers['r_ff_{}'.format(l)], -1)
+                self.layers['takelast_p_{}'.format(l-1)].add_input(self.layers['r_ff_{}'.format(l)], -1)
                 # link
-                self.layers['p_{}'.format(l-1)].add_input(self.layers['takelast_for_p_{}'.format(l-1)])
+                self.layers['p_{}'.format(l-1)].add_input(self.layers['takelast_p_{}'.format(l-1)])
                 if (l > 1):
                     # init connection
-                    self.layers['takelast_for_r_fb_{}'.format(l-1)].add_input(self.layers['r_init_{}'.format(l-1)])
+                    self.layers['takelast_r_fb_{}'.format(l-1)].add_input(self.layers['r_init_{}'.format(l-1)])
                     # recurrent connection
-                    self.layers['takelast_for_r_fb_{}'.format(l-1)].add_input(self.layers['r_ff_{}'.format(l-1)], -1)
+                    self.layers['takelast_r_fb_{}'.format(l-1)].add_input(self.layers['r_ff_{}'.format(l-1)], -1)
                     # link
-                    self.layers['r_fb_{}'.format(l-1)].add_input(self.layers['takelast_for_r_fb_{}'.format(l-1)])
+                    self.layers['r_fb_{}'.format(l-1)].add_input(self.layers['takelast_r_fb_{}'.format(l-1)])
                     self.layers['r_fb_{}'.format(l-1)].add_input(self.layers['p_{}'.format(l-1)])
 
             # feedback pass
