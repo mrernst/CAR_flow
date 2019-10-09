@@ -60,18 +60,10 @@ import utilities.networks.buildingblocks as bb
 
 
 class InitialRepresentation(bb.ComposedModule):
-    def define_inner_modules(self, name):
-        self.input_module = bb.ConvolutionalLayerWithBatchNormalizationModule(
-            name, n_out, is_training, beta_init,
-            gamma_init, ema_decay_rate, activation,
-            filter_shape, strides, bias_shape,
-            padding='SAME')
-        self.output_module = DoNothingModule(name + "_output")  # bb.MaxPoolingModule()
-        self.output_module.add_input(self.input_module)
-
-
-class Prediction(bb.ComposedModule):
-    def define_inner_modules(self, name):
+    def define_inner_modules(
+        self, name, n_out, is_training, beta_init,
+        gamma_init, ema_decay_rate, activation,
+            filter_shape, strides, bias_shape):
         self.input_module = bb.ConvolutionalLayerWithBatchNormalizationModule(
             name, n_out, is_training, beta_init,
             gamma_init, ema_decay_rate, activation,
@@ -81,13 +73,24 @@ class Prediction(bb.ComposedModule):
         self.output_module.add_input(self.input_module)
 
 
-class FBRepresentation(bb.ComposedModule):
-    def define_inner_modules(self, name):
-        self.beta = tf.variable(0.5, trainable=True)
-        self.sigma2 = tf.variable(1.0, trainable=False)
-        self.b = 2*tf.abs(self.beta) / self.sigma2
-        self.input_module = bb.AddModule(name + "_input")
-        self.output_module = bb.ActivationModule(name + "_output")
+class Prediction(bb.ComposedModule):
+    def define_inner_modules(self, name, filter_shape, strides, output_shape):
+        self.input_module = bb.Conv2DTransposeModule(
+            name + "_deconv", filter_shape, strides, output_shape)
+        # wiring of modules
+        self.output_module = DoNothingModule(name + "_output")
+        self.output_module.add_input(self.input_module)
+
+
+class FBRepresentation(bb.OperationModule):
+    def define_inner_modules(self, name, activation_function):
+        # self.beta = tf.variable(0.5, trainable=True)
+        # self.sigma2 = tf.variable(1.0, trainable=False)
+        # self.b = 2*tf.abs(self.beta) / self.sigma2
+        self.b = tf.variable(0.5, trainable=True)
+        # wiring of modules
+        self.input_module = WeightedSum(name + "_input", 1.-self.b, self.b)
+        self.output_module = bb.ActivationModule(name + "_output", activation_function)
         self.output_module.add_input(self.input_module)
 
 
@@ -99,20 +102,28 @@ class PredictionError(bb.AddModule):
 
 
 class FFRepresentation(bb.ComposedModule):
-    def define_inner_modules(self, name):
-        self.alpha = tf.variable(1.0, trainable=True)
-        self.sigma2 = tf.variable(1.0, trainable=False)
-        self.a = 2*tf.abs(self.alpha) / self.sigma2
+    def define_inner_modules(self, name, name, n_out, is_training, beta_init,
+    gamma_init, ema_decay_rate, activation,
+    filter_shape, strides, bias_shape):
+        # self.alpha = tf.variable(1.0, trainable=True)
+        # self.sigma2 = tf.variable(1.0, trainable=False)
+        # self.a = 2*tf.abs(self.alpha) / self.sigma2
+        self.a = tf.variable(1.0, trainable=True)
+
 
         self.input_module = bb.ConvolutionalLayerWithBatchNormalizationModule(
             name, n_out, is_training, beta_init,
             gamma_init, ema_decay_rate, activation,
             filter_shape, strides, bias_shape,
             padding='SAME')
-        self.addition = bb.AddModule(name + "_addition")
+        self.old_representation = bb.AddModule(name + "_oldrep")  # hook to 2nd input
+        self.addition = WeightedSum(name + "_addition", 1., self.a)
         self.output_module = bb.ActivationModule()
+        # wiring of modules
+        self.addition.add_input(self.old_representation)
         self.addition.add_input(self.input_module)
         self.output_module.add_input(self.addition)
+
 
 
 class TakeLastInput(bb.TimeOperationModule):
@@ -122,6 +133,14 @@ class TakeLastInput(bb.TimeOperationModule):
 
 class DoNothingModule(TakeLastInput):
     pass
+
+class WeightedSum(bb.OperationModule):
+    def __init__(self, name, w1, w2):
+        self.w1 = w1
+        self.w2 = w2
+    def operation(self, *arg):
+        ret = (args[0]*self.w1 + args[1]+self.w2)
+        return ret
 
 
 # TODO: Write description for this function
@@ -140,39 +159,6 @@ def constructor(name,
         net_param_dict = {}
         receptive_pixels = 3
         n_features = 32
-        feature_multiplier = configuration_dict['feature_multiplier']
-
-        if "F" in configuration_dict['connectivity']:
-            n_features = 64
-        if "K" in configuration_dict['connectivity']:
-            receptive_pixels = 5
-
-        net_param_dict["activations"] = [bb.lrn_relu, bb.lrn_relu, tf.identity]
-        net_param_dict["conv_filter_shapes"] = [
-            [receptive_pixels, receptive_pixels,
-                configuration_dict['image_channels'], n_features],
-            [receptive_pixels, receptive_pixels, n_features,
-                configuration_dict['feature_multiplier'] * n_features]
-                                               ]
-        net_param_dict["bias_shapes"] = [
-            [1, configuration_dict['image_height'],
-                configuration_dict['image_width'], n_features],
-            [1, int(np.ceil(configuration_dict['image_height']/2)),
-                int(np.ceil(configuration_dict['image_width']/2)),
-                configuration_dict['feature_multiplier']*n_features],
-            [1, configuration_dict['classes']]]
-        net_param_dict["ksizes"] = [
-            [1, 2, 2,  1], [1, configuration_dict['image_height']//2,
-                            configuration_dict['image_width']//2, 1]]
-        net_param_dict["pool_strides"] = [[1, 2, 2, 1], [1, 2, 2, 1]]
-        net_param_dict["topdown_filter_shapes"] = [
-            [3, 3, configuration_dict['image_channels'],
-                feature_multiplier * n_features]]
-        net_param_dict["topdown_output_shapes"] = [
-            [configuration_dict['batchsize'],
-                configuration_dict['image_height'],
-                configuration_dict['image_width'],
-                configuration_dict['image_channels']]]
 
         return net_param_dict
 
@@ -195,13 +181,12 @@ class NetworkClass(bb.ComposedModule):
         self.layers = {}
         # TODO: integrate into net_parameters
         L = 2
-        T = 4
 
         with tf.name_scope('initialization'):
-            self.layers['image'] = DoNothingModule()
-            self.layers['r_ff_0'] = DoNothingModule()
-            self.layers['r_fb_0'] = DoNothingModule()
-            self.layers['r_init_0'] = DoNothingModule()
+            self.layers['image'] = DoNothingModule('image')
+            self.layers['r_ff_0'] = DoNothingModule('r_ff_0')
+            self.layers['r_fb_0'] = DoNothingModule('r_fb_0')
+            self.layers['r_init_0'] = DoNothingModule('r_init_0')
 
             for l in range(L):
                 self.layers['r_init_{}'.format(l+1)] = InitialRepresentation()
@@ -212,15 +197,11 @@ class NetworkClass(bb.ComposedModule):
                 if (l > 1):
                     self.layers['takelast_for_r_fb_{}'.format(l-1)] = TakeLastInput()
                     self.layers['r_fb_{}'.format(l-1)] = FBRepresentation()
-                    # TODO: add sigmas from same "timestep"
-                    tf.nn.moments(axes=[1, 2, 3])
             for l in range(L):
                 self.layers['e_{}'.format(l)] = PredictionError()
                 self.layers['r_ff_{}'.format(l+1)] = FFRepresentation()
-                # TODO: weight sharing between init and recurrent modules
-                self.layers['r_ff_{}'.format(l+1)].weights = self.layers['r_init_{}'.format(l+1)].weights
-                # TODO: add sigmas from one "timestep" before
-                tf.nn.moments(axes=[1, 2, 3])
+                # weight sharing between init and recurrent modules
+                self.layers['r_ff_{}'.format(l+1)].input_module.input_module.weights = self.layers['r_init_{}'.format(l+1)].input_module.input_module.weights
 
         with tf.name_scope('output_modules'):
             self.layers['gap'] = bb.GlobalAveragePoolingModule()
@@ -267,8 +248,8 @@ class NetworkClass(bb.ComposedModule):
             for l in range(L):
                 self.layers['e_{}'.format(l)].add_input(self.layers['r_ff_{}'.format(l)])
                 self.layers['e_{}'.format(l)].add_input(self.layers['p_{}'.format(l)])
-                self.layers['r_ff_{}'.format(l+1)].add_input(self.layers['r_fb_{}'.format(l+1)])
                 self.layers['r_ff_{}'.format(l+1)].add_input(self.layers['e_{}'.format(l)])
+                self.layers['r_ff_{}'.format(l+1)].old_representation.add_input(self.layers['r_fb_{}'.format(l+1)])
 
 
             # output modules
