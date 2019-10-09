@@ -57,24 +57,50 @@ import utilities.networks.buildingblocks as bb
 # CR composed module
 # S module
 # TakeLastInputModule
-# DoNothingModule
 
-class ConvAddActModule(bb.TimeComposedModule):
-    pass
 
-class AddActModule(bb.TimeComposedModule):
-    pass
+class InitialRepresentation(bb.ComposedModule):
+    def define_inner_modules(self, name):
+        self.input_module = bb.ConvolutionalLayerModule()
+        self.output_module = DoNothingModule()  # bb.MaxPoolingModule()
+        self.output_module.add_input(self.input_module)
 
-class ConvActModule(bb.TimeComposedModule):
-    pass
 
-class SubtractModule(bb.TimeAddModule):
-    pass
+class Prediction(bb.ComposedModule):
+    def define_inner_modules(self, name):
+        self.input_module = bb.ConvolutionalLayerModule()
+        self.output_module = DoNothingModule()
+        self.output_module.add_input(self.input_module)
+
+class FBRepresentation(bb.ComposedModule):
+    def define_inner_modules(self, name):
+        self.input_module = bb.AddModule()
+        self.output_module = bb.ActivationModule()
+        self.output_module.add_input(self.input_module)
+
+
+class PredictionError(bb.AddModule):
+    def operation(self, *arg):
+        arg1 = args[0]
+        arg2 = args[-1]
+        return tf.subtract(arg1, arg2, name=self.name)
+
+
+class FFRepresentation(bb.ComposedModule):
+    def define_inner_modules(self, name):
+        self.input_module = bb.ConvolutionalLayerModule()
+        self.addition = bb.AddModule()
+        self.output_module = bb.ActivationModule()
+        self.addition.add_input(self.input_module)
+        self.output_module.add_input(self.addition)
+
 
 class TakeLastInputModule(bb.TimeOperationModule):
-    pass
+    def operation(self, *arg):
+        return args[-1]
 
-class DoNothingModule(bb.Operationmodule):
+
+class DoNothingModule(TakeLastInputModule):
     pass
 
 
@@ -158,8 +184,7 @@ class NetworkClass(bb.ComposedModule):
             self.layers['r_init_0'] = DoNothingModule()
 
             for l in range(L):
-                self.layers['init_conv_{}'.format(l+1)] = bb.TimeConvolutionalLayerModule()
-                self.layers['r_init_{}'.format(l+1)] = bb.MaxPoolingModule()
+                self.layers['r_init_{}'.format(l+1)] = bb.TimeConvolutionalLayerModule()
         with tf.name_scope('main_circuit'):
             for l in range(L, 0, -1):
                 self.layers['takelast_for_p_{}'.format(l-1)] = TakeLastInputModule()
@@ -171,7 +196,7 @@ class NetworkClass(bb.ComposedModule):
                 self.layers['e_{}'.format(l)] = SubtractModule()
                 self.layers['r_ff_{}'.format(l+1)] = CARPModule()
                 # TODO: weight sharing between init and recurrent modules
-                self.layers['r_ff_{}'.format(l+1)].weights = self.layers['init_conv_{}'.format(l+1)].weights
+                self.layers['r_ff_{}'.format(l+1)].weights = self.layers['r_init_{}'.format(l+1)].weights
 
         with tf.name_scope('output_modules'):
             self.layers['gap'] = bb.GlobalAveragePoolingModule()
@@ -190,11 +215,9 @@ class NetworkClass(bb.ComposedModule):
             self.layers['r_fb_0'].add_input(self.layers['image'])
             self.layers['r_init_0'].add_input(self.layers['image'])
 
-            self.layers['init_conv_1'].add_input(self.layers['image'])
-            self.layers['r_init_1'].add_input(self.layers['init_conv_1'])
+            self.layers['r_init_1'].add_input(self.layers['image'])
             for l in range(0, L):
-                self.layers['init_conv_{}'.format(l+1)].add_input(self.layers['r_init_{}'.format(l)])
-                self.layers['r_init{}'.format(l+1)].add_input(self.layers['init_conv_{}'.format(l+1)])
+                self.layers['r_init{}'.format(l+1)].add_input(self.layers['r_init_{}'.format(l)])
 
             # main circuit
             # -----
