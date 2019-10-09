@@ -1349,8 +1349,8 @@ class ConvolutionalLayerWithBatchNormalizationModule(ComposedModule):
 class TimeConvolutionalLayerModule(TimeComposedModule):
     """
     TimeConvolutionalLayerModule inherits from TimeComposedModule. This
-    composed module performs a convolution and applies a bias and an
-    activation function. It does allow recursions on two different hooks
+    composed module adds up inputs, performs a convolution and applies a bias
+    and an activation function. It does allow recursions on two different hooks
     (input and preactivation).
     """
     def define_inner_modules(self, name, activation, filter_shape, strides,
