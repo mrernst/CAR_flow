@@ -351,6 +351,14 @@ def get_input_directory(configuration_dict):
             'osmnist/osfashionmnist/tfrecord_files/{}occ/'.format(
             configuration_dict['n_occluders'])
         parser = tfrecord_handler._osmnist_parse_single
+    elif configuration_dict['dataset'] == "oldosmnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'oldosmnist/tfrecord_files/{}occ/'.format(
+            configuration_dict['n_occluders'])
+        # TODO: A new folder structure like the following?
+        # 'osmnist/tfrecord_files/fashion/cues/{}occ/'
+        # 'osmnist/tfrecord_files/digits/random/{}occ/'
+        parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "mnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'mnist/tfrecord_files/'
