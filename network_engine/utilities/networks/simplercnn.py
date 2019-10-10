@@ -94,7 +94,7 @@ def constructor(name,
                             configuration_dict['image_width']//2, 1]]
         net_param_dict["pool_strides"] = [[1, 2, 2, 1], [1, 2, 2, 1]]
         net_param_dict["topdown_filter_shapes"] = [
-            [3, 3, configuration_dict['image_channels'],
+            [receptive_pixels, receptive_pixels, configuration_dict['image_channels'],
                 feature_multiplier * n_features]]
         net_param_dict["topdown_output_shapes"] = [
             [configuration_dict['batchsize'],
