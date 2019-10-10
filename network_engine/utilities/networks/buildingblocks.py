@@ -1033,7 +1033,7 @@ class UnConvolutionModule(OperationModule):
     def __init__(self, name, filter_shape, strides, output_shape,
                  padding='SAME'):
         """
-        Creates a Conv2DTransposeModule object
+        Creates a UnConvolutionModule object
 
         Args:
           name:               string, name of the module
