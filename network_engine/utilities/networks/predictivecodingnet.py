@@ -159,9 +159,41 @@ def constructor(name,
         net_param_dict = {}
         receptive_pixels = 3
         n_features = 32
-        net_param_dict['network_depth'] = configuration_dict['network_depth']
 
-        return net_param_dict
+        net_param_dict['network_depth'] = configuration_dict['network_depth']
+        net_param_dict["activations"] = [tf.nn.relu, tf.identity]
+        net_param_dict["conv_filter_shapes"] = [
+            [receptive_pixels, receptive_pixels,
+                configuration_dict['image_channels'], n_features],
+            [receptive_pixels, receptive_pixels, n_features,
+                n_features]
+                ]
+        net_param_dict["bias_shapes"] = [
+            [1, configuration_dict['image_height'],
+                configuration_dict['image_width'], n_features]
+                ]
+
+        net_param_dict["topdown_filter_shapes"] = [
+            [receptive_pixels, receptive_pixels, configuration_dict['image_channels'],
+                n_features],
+            [receptive_pixels, receptive_pixels, n_features],
+                n_features]
+                ]
+
+        net_param_dict["topdown_output_shapes"] = [
+            [configuration_dict['batchsize'],
+                configuration_dict['image_height'],
+                configuration_dict['image_width'],
+                configuration_dict['image_channels']],
+            [configuration_dict['batchsize'],
+                configuration_dict['image_height'],
+                configuration_dict['image_width'],
+                configuration_dict['image_channels']]
+                ]
+
+        # TODO: Implement Pooling
+        net_param_dict["ksizes"] = []
+        net_param_dict["pool_strides"] = []
 
     if custom_net_parameters:
         net_parameters = custom_net_parameters
