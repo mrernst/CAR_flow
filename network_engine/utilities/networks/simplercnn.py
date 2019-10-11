@@ -90,7 +90,7 @@ def constructor(name,
                 configuration_dict['feature_multiplier']*n_features],
             [1, configuration_dict['classes']]]
         net_param_dict["ksizes"] = [
-            [1, 2, 2,  1], [1, configuration_dict['image_height']//2,
+            [1, 2, 2, 1], [1, configuration_dict['image_height']//2,
                             configuration_dict['image_width']//2, 1]]
         net_param_dict["pool_strides"] = [[1, 2, 2, 1], [1, 2, 2, 1]]
         net_param_dict["topdown_filter_shapes"] = [
