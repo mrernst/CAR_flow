@@ -99,7 +99,7 @@ def constructor(name,
             [configuration_dict['batchsize'],
                 configuration_dict['image_height'],
                 configuration_dict['image_width'],
-                configuration_dict['image_channels']]]
+                n_features]]
 
         return net_param_dict
 
