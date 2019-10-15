@@ -81,7 +81,7 @@ import utilities.afterburner as afterburner
 
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' +
+tf.app.flags.DEFINE_string('config_file', '/home/mernst/git/'+  #/Users/markus/Research/Code/' +
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
