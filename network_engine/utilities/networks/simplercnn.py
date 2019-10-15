@@ -248,39 +248,39 @@ class NetworkClass(bb.ComposedModule):
             if "L" in self.net_params['connectivity']:
                 if self.net_params['batchnorm']:
                     self.layers["lateral0"].add_input(
-                        self.layers["conv0"].preactivation)
+                        self.layers["conv0"])
                     self.layers["lateral0_batchnorm"].add_input(
                         self.layers["lateral0"])
-                    self.layers["conv0"].add_input(
+                    self.layers["conv0"].preactivation.add_input(
                         self.layers["lateral0_batchnorm"], -1)
                     self.layers["lateral1"].add_input(
-                        self.layers["conv1"].preactivation)
+                        self.layers["conv1"])
                     self.layers["lateral1_batchnorm"].add_input(
                         self.layers["lateral1"])
-                    self.layers["conv1"].add_input(
+                    self.layers["conv1"].preactivation.add_input(
                         self.layers["lateral1_batchnorm"], -1)
                 else:
                     self.layers["lateral0"].add_input(
-                        self.layers["conv0"].preactivation)
-                    self.layers["conv0"].add_input(
+                        self.layers["conv0"])
+                    self.layers["conv0"].preactivation.add_input(
                         self.layers["lateral0"], -1)
                     self.layers["lateral1"].add_input(
-                        self.layers["conv1"].preactivation)
-                    self.layers["conv1"].add_input(
+                        self.layers["conv1"])
+                    self.layers["conv1"].preactivation.add_input(
                         self.layers["lateral1"], -1)
             if "T" in self.net_params['connectivity']:
                 if self.net_params['batchnorm']:
                     self.layers["topdown0_batchnorm"].add_input(
                         self.layers["topdown0"])
-                    self.layers["conv0"].add_input(
+                    self.layers["conv0"].preactivation.add_input(
                         self.layers["topdown0_batchnorm"], -1)
                     self.layers["topdown0"].add_input(
-                        self.layers["conv1"].preactivation)
+                        self.layers["conv1"])
                 else:
-                    self.layers["conv0"].add_input(
+                    self.layers["conv0"].preactivation.add_input(
                         self.layers["topdown0"], -1)
                     self.layers["topdown0"].add_input(
-                        self.layers["conv1"].preactivation)
+                        self.layers["conv1"])
         with tf.name_scope('input_output'):
             self.input_module = self.layers["conv0"]
             self.output_module = self.layers["fc0"]
