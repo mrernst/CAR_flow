@@ -142,7 +142,6 @@ class NetworkClass(bb.ComposedModule):
                     self.net_params['conv_filter_shapes'][0].copy()
                 tmp = lateral_filter_shape[2]
                 lateral_filter_shape[2] = lateral_filter_shape[3]
-                lateral_filter_shape[3] = tmp
                 self.layers["lateral0"] = bb.Conv2DModule(
                     "lateral0", lateral_filter_shape, [1, 1, 1, 1])
                 self.layers["lateral0_batchnorm"] = \
@@ -194,7 +193,6 @@ class NetworkClass(bb.ComposedModule):
                 lateral_filter_shape = self.net_params['conv_filter_shapes'][1]
                 tmp = lateral_filter_shape[2]
                 lateral_filter_shape[2] = lateral_filter_shape[3]
-                lateral_filter_shape[3] = tmp
                 self.layers["lateral1"] = bb.Conv2DModule(
                     "lateral1", lateral_filter_shape, [1, 1, 1, 1])
                 self.layers["lateral1_batchnorm"] = \
