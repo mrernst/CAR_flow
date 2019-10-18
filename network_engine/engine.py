@@ -81,7 +81,7 @@ import utilities.afterburner as afterburner
 
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', '/home/mernst/git/'+  #/Users/markus/Research/Code/' +
+tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' + #'/home/mernst/git/'+
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
@@ -604,7 +604,8 @@ with tf.compat.v1.Session() as sess:
         run_metadata = tf.RunMetadata()
 
     saver = tf.compat.v1.train.Saver(
-        keep_checkpoint_every_n_hours=1, max_to_keep=2)
+        keep_checkpoint_every_n_hours=1, max_to_keep=2,
+        save_relative_paths=True)
     sess.run(tf.compat.v1.global_variables_initializer())
 
     # training and testing functions
