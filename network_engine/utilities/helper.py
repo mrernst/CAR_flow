@@ -488,13 +488,24 @@ def infer_additional_parameters(configuration_dict):
     else:
         configuration_dict['crossentropy_fn'] = softmax_cross_entropy
 
-    # change the image height and image width if the network is supposed
     # to crop the images
+    # store the original values
+    configuration_dict['image_height_input'] = \
+        configuration_dict['image_height']
+    configuration_dict['image_width_input'] = \
+        configuration_dict['image_width']
+
+    # change the image height and image width if the network is supposed
+
     if configuration_dict['cropped'] or configuration_dict['augmented']:
-        configuration_dict['image_height'] = configuration_dict['image_width']\
+        configuration_dict['image_height'] = \
+            configuration_dict['image_width']\
             // 10 * 4
-        configuration_dict['image_width'] = configuration_dict['image_width']\
+        configuration_dict['image_width'] = \
+            configuration_dict['image_width']\
             // 10 * 4
+    else:
+        pass
 
     # overwrite the default time_depth if network is not recurrent
     if configuration_dict['connectivity'] in ['B', 'BK', 'BF']:
