@@ -109,14 +109,14 @@ def all_percentages_tfrecord_paths(type, dataset, n_occluders, downsampling,
     if dataset == "osycb":
         for occp in [20, 40, 60, 80]:
             tfrecord_directory = input_directory + \
-                'osycb/tfrecord-files/{}occ/{}p/{}/'.format(
-                    n_occluders, occp,  downsampling)
+                'osycb/tfrecord_files/{}occ/{}p/{}/'.format(
+                    n_occluders, occp, downsampling)
             filenames += tfrecord_auto_traversal(
                 tfrecord_directory + type + '/')
     elif 'osdigit' in dataset:
         for occp in [3, 4, 5]:
             TFRECORD_DIRECTORY = input_directory + \
-                'digit_database/tfrecord-files/{}{}/'.format(occp, dataset)
+                'digit_database/tfrecord_files/{}{}/'.format(occp, dataset)
             filenames += tfrecord_auto_traversal(
                 TFRECORD_DIRECTORY + type + '/')
     if shuffled:
