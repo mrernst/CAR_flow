@@ -340,8 +340,8 @@ circuit = importlib.import_module(CONFIG['network_module'])
 
 
 inp = bb.NontrainableVariableModule("input", (CONFIG['batchsize'],
-                                              CONFIG['image_height'],
-                                              CONFIG['image_width'],
+                                              CONFIG['image_height_input'],
+                                              CONFIG['image_width_input'],
                                               CONFIG['image_channels']),
                                     dtype=DTYPE)
 
