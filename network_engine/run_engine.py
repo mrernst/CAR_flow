@@ -114,7 +114,7 @@ class SbatchDocument(object):
             "#SBATCH --ntasks-per-node=1 \n" + \
             "#SBATCH --cpus-per-task=4 \n" + \
             "#SBATCH --time=700:00:00 \n" + \
-            "#SBATCH --mem=20GB \n" + \
+            "#SBATCH --mem=35GB \n" + \
             "#SBATCH --reservation triesch-shared \n" + \
             "#SBATCH --gres=gpu:1 \n" + \
             "#SBATCH --partition=sleuths \n" + \
