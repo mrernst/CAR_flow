@@ -406,8 +406,9 @@ def get_image_files(tfrecord_dir, training_dir, validation_dir, test_dir,
             if list_of_dirs[i] == 'all':
                 list_of_files.append(
                     tfrecord_handler.all_percentages_tfrecord_paths(
-                        type, dataset, input_directory,
-                        n_occluders, downsampling))
+                        type=type, dataset=dataset, n_occluders=n_occluders,
+                        downsampling=downsampling,
+                        input_directory=input_directory))
             else:
                 list_of_files.append(
                     tfrecord_handler.tfrecord_auto_traversal(list_of_dirs[i]))
