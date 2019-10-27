@@ -194,8 +194,10 @@ def _osycb_parse_single(example_proto):
     image_encoded_l = parsed_features["image/left/encoded"]
     image_encoded_r = parsed_features["image/right/encoded"]
 
-    image_decoded_l = tf.image.decode_jpeg(image_encoded_l, channels=3)
-    image_decoded_r = tf.image.decode_jpeg(image_encoded_r, channels=3)
+    image_decoded_l = tf.cast(
+        tf.image.decode_jpeg(image_encoded_l, channels=3), tf.float32)
+    image_decoded_r = tf.cast(
+        tf.image.decode_jpeg(image_encoded_r, channels=3), tf.float32)
 
     return image_decoded_l, image_decoded_r, n_hot, one_hot
 
