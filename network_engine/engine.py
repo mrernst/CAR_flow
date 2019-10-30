@@ -722,6 +722,7 @@ with tf.compat.v1.Session() as sess:
         #     saver.restore(sess, checkpoint.model_checkpoint_path)
         # TODO: Do we really need checkpoint restore?
         # TODO: maybe evaluation directory is not needed? helper..
+        # TODO: get the occlusion percentages here also
         emb, emb_labels, emb_thu, list_of_bc_values, \
             list_of_output_values = evaluating(
                 global_step.eval(), flnames=flnames)
