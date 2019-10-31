@@ -58,6 +58,8 @@ import errno
 
 tf.app.flags.DEFINE_boolean('fashion', False,
                             'use fashion_mnist instead')
+tf.app.flags.DEFINE_boolean('kuzushiji', False,
+                            'Use kuzushiji mnist instead')
 tf.app.flags.DEFINE_integer('n_proliferation', 10,
                             'number of generated samples per sample')
 tf.app.flags.DEFINE_integer('n_shards', 10,
@@ -201,8 +203,10 @@ for i in range(N_MAX_OCCLUDERS):
 
 class OSMNISTBuilder(object):
     def __init__(self, n_proliferation=10, num_class=10,
-                 shape=[32, 32, 1], centered_target=True, fashion=False):
+                 shape=[32, 32, 1], centered_target=True,
+                 fashion=False, kuzushiji=False):
         self.fashion = fashion
+        self.kuzushiji = kuzushiji
         self.num_class = num_class
         self.centered_target = centered_target
         self.n_per_class, self.remainder = divmod(
@@ -302,8 +306,21 @@ class OSMNISTBuilder(object):
         tfr_writer.close()
 
     def _load_mnist(self):
+
         if self.fashion:
             (x, y), (x_t, y_t) = tf.keras.datasets.fashion_mnist.load_data()
+        elif self.kuzushiji:
+            from tensorflow.examples.tutorials.mnist import input_data
+            km_url = 'http://codh.rois.ac.jp/kmnist/dataset/kmnist/'
+            mnist = input_data.read_data_sets(
+                "/tmp/tensorflow/kuzushijimnist/input_data",
+                reshape=False,
+                source_url=km_url
+            )
+            x = (mnist.train.images * 255).astype('uint8')
+            y = mnist.train.labels
+            x_t = (mnist.test.images * 255).astype('uint8')
+            y_t = mnist.test.labels
         else:
             (x, y), (x_t, y_t) = tf.keras.datasets.mnist.load_data()
 
@@ -311,10 +328,10 @@ class OSMNISTBuilder(object):
             x = np.expand_dims(x, -1)
             x_t = np.expand_dims(x_t, -1)
 
-            # diminish test set for testing
-            if FLAGS.testrun:
-                x_t, y_t = x_t[:100], y_t[:100]
-                x, y = x[:100], y[:100]
+        # diminish test set for testing
+        if FLAGS.testrun:
+            x_t, y_t = x_t[:100], y_t[:100]
+            x, y = x[:100], y[:100]
 
         array_size = (x.shape[0], x_t.shape[0])
         x = [x[y == i] for i in range(self.num_class)]
@@ -440,6 +457,9 @@ if __name__ == '__main__':
     if FLAGS.fashion:
         datasetname += 'fashion'
         pathmodifier = './osfashionmnist/'
+    elif FLAGS.kuzushiji:
+        datasetname += 'kuzushiji'
+        pathmodifier = './oskuzushijimnist/'
     else:
         pathmodifier = './'
     datasetname += 'mnist'
@@ -455,7 +475,8 @@ if __name__ == '__main__':
     builder = OSMNISTBuilder(
         centered_target=FLAGS.centered_target,
         n_proliferation=FLAGS.n_proliferation,
-        fashion=FLAGS.fashion)
+        fashion=FLAGS.fashion,
+        kuzushiji=FLAGS.kuzushiji)
 
     for i in range(FLAGS.n_shards):
         builder.build(
