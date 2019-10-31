@@ -322,6 +322,49 @@ class AddModule(OperationModule):
         return ret
 
 
+class TimeMultModule(TimeOperationModule):
+    """
+    TimeMultModule inherits from TimeOperationModule. It can have as many
+    inputs as required and sums their outputs. It does support recursions.
+    """
+
+    def operation(self, *args):
+        """
+        operation takes a TimeMultModule and the input modules
+
+        Args:
+          *args:                list of modules
+
+        Returns:
+          ret:                  tensor, sum of input tensors
+        """
+        ret = args[0]
+        for e in args[1:]:
+            ret = tf.multiply(ret, e, name=self.name)
+        return ret
+
+
+class MultModule(OperationModule):
+    """
+    MultModule inherits from OperationModule. It can have as many inputs as
+    required and sums their outputs. It does not support recursions.
+    """
+    def operation(self, *args):
+        """
+        operation takes an MultModule and the input modules
+
+        Args:
+          *args:                list of modules
+
+        Returns:
+          ret:                    tensor, sum of input tensors
+        """
+        ret = args[0]
+        for e in args[1:]:
+            ret = tf.multiply(ret, e, name=self.name)
+        return ret
+
+
 class AbstractComposedModule(Module):
     """
     AbstractComposedModule is an abstract class. It inherits from Module

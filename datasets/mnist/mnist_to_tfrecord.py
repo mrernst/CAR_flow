@@ -58,9 +58,11 @@ from tensorflow.examples.tutorials.mnist import input_data
 # FLAGS
 
 tf.app.flags.DEFINE_boolean('fashion', False,
-                            'use fashion_mnist instead')
+                            'Use fashion mnist instead')
+tf.app.flags.DEFINE_boolean('kuzushiji', False,
+                            'Use kuzushiji mnist instead')
 tf.app.flags.DEFINE_string('data_directory', "tfrecord_files/",
-                            'Directory where TFRecords will be stored')
+                           'Directory where TFRecords will be stored')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -81,7 +83,6 @@ def _data_path(data_directory: str, name: str) -> str:
     """
     if not os.path.isdir(data_directory):
         os.makedirs(data_directory)
-
     return os.path.join(data_directory, '{}.tfrecord'.format(name))
 
 
@@ -167,11 +168,19 @@ def convert_to_tf_record(data_directory: str):
         data_directory: The directory where the TFRecord files should be stored
     """
     fm_url = 'http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/'
+    km_url = 'http://codh.rois.ac.jp/kmnist/dataset/kmnist/'
+
     if FLAGS.fashion:
         mnist = input_data.read_data_sets(
             "/tmp/tensorflow/fashionmnist/input_data",
             reshape=False,
             source_url=fm_url
+        )
+    elif FLAGS.kuzushiji:
+        mnist = input_data.read_data_sets(
+            "/tmp/tensorflow/kuzushijimnist/input_data",
+            reshape=False,
+            source_url=km_url
         )
     else:
         mnist = input_data.read_data_sets(
@@ -186,10 +195,15 @@ def convert_to_tf_record(data_directory: str):
 
 if __name__ == '__main__':
     if FLAGS.fashion:
-        data_dir = '.fashionmnist/' + FLAGS.data_directory
+        data_dir = './' + 'fashionmnist/' + FLAGS.data_directory
+    elif FLAGS.kuzushiji:
+        data_dir = './' + 'kuzushijimnist/' + FLAGS.data_directory
     else:
         data_dir = './' + FLAGS.data_directory
-    convert_to_tf_record(os.path.expanduser(FLAGS.data_directory))
+
+    # print(data_dir)
+    # sys.exit()
+    convert_to_tf_record(os.path.expanduser(data_dir))
 
 # _____________________________________________________________________________
 
