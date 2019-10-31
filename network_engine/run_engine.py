@@ -124,7 +124,7 @@ class SbatchDocument(object):
             "#SBATCH --output={}slurm_output/{}_slurm_%j.out \n".format(
                 self.files_dir, self.experiment_name) + \
             "#SBATCH --array=0-{}%{} \n\n".format(len(paths_to_config_files)-1,
-                                                number_of_gpus)
+                                                  number_of_gpus)
 
         middle = \
             'config_array={} \n'.format(bash_array) + \
