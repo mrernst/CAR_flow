@@ -600,8 +600,8 @@ class Conv2DTransposeModule(VariableModule):
         of the deconvolution as specified by the parameters given in the
         constructor.
         """
-        self.weights = tf.Variable(tf.random.truncated_normal(shape=self.filter_shape,
-                                                       stddev=0.1), name=name)
+        self.weights = tf.Variable(tf.random.truncated_normal(
+            shape=self.filter_shape, stddev=0.1), name=name)
 
 
 class MaxPoolingModule(OperationModule):
@@ -758,8 +758,9 @@ class FullyConnectedModule(VariableModule):
         matrix as specified by the parameters for sizes given in the
         constructor.
         """
-        self.weights = tf.Variable(tf.random.truncated_normal(shape=(self.in_size,
-                                   self.out_size), stddev=0.1), name=name)
+        self.weights = tf.Variable(
+            tf.random.truncated_normal(shape=(self.in_size, self.out_size),
+                                       stddev=0.1), name=name)
 
 
 class DropoutModule(OperationModule):
@@ -1398,13 +1399,18 @@ class TimeConvolutionalLayerModule(TimeComposedModule):
     """
     def define_inner_modules(self, name, activation, filter_shape, strides,
                              bias_shape, padding='SAME'):
+        # multiply_inputs=True
 
         self.input_module = TimeAddModule(name + "_input")
         self.conv = Conv2DModule(name + "_conv", filter_shape, strides,
                                  padding=padding)
         self.bias = BiasModule(name + "_bias", bias_shape)
         self.preactivation = TimeAddModule(name + "_preactivation")
+        # self.preactivation_plus = TimeAddModule(
+        #     name + "_preactivation_plus")
         self.output_module = ActivationModule(name + "_output", activation)
+
+        # wiring of modules
         self.conv.add_input(self.input_module)
         self.preactivation.add_input(self.conv, 0)
         self.preactivation.add_input(self.bias, 0)
@@ -1435,6 +1441,8 @@ class TimeConvolutionalLayerWithBatchNormalizationModule(TimeComposedModule):
                                                   moment_axes=[0, 1, 2],
                                                   variance_epsilon=1e-3)
         self.output_module = ActivationModule(name + "_output", activation)
+
+        # wiring of modules
         self.conv.add_input(self.input_module)
         self.preactivation.add_input(self.conv, 0)
         # self.preactivation.add_input(self.bias)
