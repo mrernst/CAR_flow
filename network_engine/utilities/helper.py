@@ -351,6 +351,11 @@ def get_input_directory(configuration_dict):
             'osmnist/osfashionmnist/tfrecord_files/{}occ/'.format(
             configuration_dict['n_occluders'])
         parser = tfrecord_handler._osmnist_parse_single
+    elif configuration_dict['dataset'] == "oskuzushijimnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'osmnist/oskuzushijimnist/tfrecord_files/{}occ/'.format(
+            configuration_dict['n_occluders'])
+        parser = tfrecord_handler._osmnist_parse_single
     elif configuration_dict['dataset'] == "osmnistwithcues":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'osmnistwithcues/tfrecord_files/{}occ/'.format(
@@ -366,6 +371,10 @@ def get_input_directory(configuration_dict):
     elif configuration_dict['dataset'] == "fashionmnist":
         tfrecord_dir = configuration_dict['input_dir'] + \
             'mnist/fashionmnist/tfrecord_files/'
+        parser = tfrecord_handler._mnist_parse_single
+    elif configuration_dict['dataset'] == "kuzushijimnist":
+        tfrecord_dir = configuration_dict['input_dir'] + \
+            'mnist/kuzushijimnist/tfrecord_files/'
         parser = tfrecord_handler._mnist_parse_single
     elif configuration_dict['dataset'] == "cifar10":
         tfrecord_dir = configuration_dict['input_dir'] + \
@@ -476,6 +485,8 @@ def infer_additional_parameters(configuration_dict):
         configuration_dict['class_encoding'] = np.array(
             ['T-shirt/top', 'Trouser', 'Pullover', 'Dress', 'Coat',
              'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot'])
+    elif 'kuzushiji' in configuration_dict['dataset']:
+        pass  # unicode characters not supported
 
     if configuration_dict['color'] == 'grayscale':
         configuration_dict['image_channels'] = 1
