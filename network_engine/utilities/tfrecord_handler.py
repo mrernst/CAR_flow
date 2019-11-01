@@ -288,8 +288,11 @@ def _osmnist_parse_single(example_proto):
     segmap_decoded_l = tf.image.decode_png(segmaps_encoded_l)
     segmap_decoded_r = tf.image.decode_png(segmaps_encoded_r)
 
+    occlusion_l = parsed_features["occlusion_left"]
+    occlusion_r = parsed_features["occlusion_left"]
+
     return image_decoded_l, image_decoded_r, segmap_decoded_l, \
-        segmap_decoded_r, n_hot, one_hot
+        segmap_decoded_r, occlusion_l, occlusion_r, n_hot, one_hot
 
 
 def _mnist_parse_single(example_proto):
