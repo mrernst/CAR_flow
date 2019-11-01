@@ -420,8 +420,23 @@ if CONFIG['color'] == 'grayscale' and not('mnist' in CONFIG['dataset']):
 
 if not CONFIG['stereo']:
     inp_unknown = inp_left
+
+    # define occlusion percentage
+    if len(next_batch) > 4:
+        occlusion_percentage = next_batch[-3]
+    else:
+        occlusion_percentage = tf.convert_to_tensor(
+            np.repeat(CONFIG['occlusion_percentage'],
+                      CONFIG['batchsize']))
 else:
     inp_unknown = tf.concat([inp_left, inp_right], axis=3)
+
+    if len(next_batch) > 4:
+        occlusion_percentage = (next_batch[-3] + next_batch[-4])/2
+    else:
+        occlusion_percentage = tf.convert_to_tensor(
+            np.repeat(CONFIG['occlusion_percentage'],
+                      CONFIG['batchsize']))
 
 if CONFIG['label_type'] == "onehot":
     labels.variable = labels.variable.assign(next_batch[-1])
@@ -619,6 +634,8 @@ with tf.compat.v1.Session() as sess:
         list_of_output_values = []
         list_of_output_tensors = []
         list_of_bc_values = []
+        list_of_occlusion_percentages = []
+
         for time in network.outputs:
             list_of_output_tensors.append(tf.nn.softmax(network.outputs[time]))
 
@@ -630,15 +647,17 @@ with tf.compat.v1.Session() as sess:
 
         while True:
             try:
-                _, _, extras, images, bc, out = sess.run(
+                _, _, extras, images, bc, occ, out = sess.run(
                     [testaverages.update, embedding.update, add_merged,
                         image_merged, bool_classification,
+                        occlusion_percentage,
                         list_of_output_tensors],
                     feed_dict={keep_prob.placeholder: 1.0,
                                is_training.placeholder: False})
 
                 # save output and bool_classification data
                 list_of_output_values.append(out)
+                list_of_occlusion_percentages += occ.tolist()
                 if CONFIG['label_type'] == "onehot":
                     list_of_bc_values += bc.astype(np.int8).tolist()
                 else:
@@ -663,7 +682,8 @@ with tf.compat.v1.Session() as sess:
 
         # pass labels to write to metafile
         return emb, emb_labels, emb_thu, \
-            list_of_bc_values, list_of_output_values
+            list_of_bc_values, list_of_occlusion_percentages, \
+            list_of_output_values
 
     def write_embeddings_to_disk(emb, emb_labels, emb_thu, list_of_bc_values):
         saver.save(sess, CHECKPOINT_DIRECTORY +
@@ -724,7 +744,7 @@ with tf.compat.v1.Session() as sess:
         # TODO: maybe evaluation directory is not needed? helper..
         # TODO: get the occlusion percentages here also
         emb, emb_labels, emb_thu, list_of_bc_values, \
-            list_of_output_values = evaluating(
+            list_of_occlusion_percentages, list_of_output_values = evaluating(
                 global_step.eval(), flnames=flnames)
 
         embedding_data = {}
@@ -737,6 +757,7 @@ with tf.compat.v1.Session() as sess:
 
         evaluation_data = \
             {'boolean_classification': np.array(list_of_bc_values),
+             'occlusion_percentage': np.array(list_of_occlusion_percentages),
              'softmax_output': np.array(list_of_output_values)}
         if projector_bool:
             write_embeddings_to_disk(emb, emb_labels, emb_thu,
