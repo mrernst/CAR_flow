@@ -892,7 +892,7 @@ with tf.compat.v1.Session() as sess:
 
     evaluation_data, embedding_data = \
         evaluate_data(projector_bool=CONFIG['projector'],
-                      flnames=test_filenames)  # reduced [:1]
+                      flnames=test_filenames[:2])  # reduced [:1]
 
     train_writer.close()
     test_writer.close()
