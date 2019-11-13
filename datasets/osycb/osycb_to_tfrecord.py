@@ -114,8 +114,12 @@ tf.app.flags.DEFINE_string('output_directory',
                            '/Users/markus/Desktop/ycbtest/',
                            'where the tfrecord files will be stored')
 
-# tf.app.flags.DEFINE_string('pdstruct_file', '/home/aecgroup/aecdata/Software/icub-gazebo/YCB_database2/dataframes/2occ/20p/YCBdb2_2occ_20p_usample1000_downsampled4.gzip',
+# tf.app.flags.DEFINE_string('pdstruct_file', '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/dataframes/OSYCB_2occ_allperc_combined.gzip',
                            # 'Pandas Dataframe Pickle file')
+# tf.app.flags.DEFINE_string('output_directory',
+#                            '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/',
+#                            'where the tfrecord files will be stored')
+
 tf.app.flags.DEFINE_string('pdstruct_file',
                            '/Users/markus/Desktop/test.gzip',
                            'Pandas Dataframe Pickle file')
