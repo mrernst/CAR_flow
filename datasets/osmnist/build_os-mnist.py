@@ -142,7 +142,6 @@ def _write_to_file(img_enc_left, img_enc_right, labels, count):
     mkdir_p("./export/left/label_{}/".format(labels[0]))
     mkdir_p("./export/right/label_{}/".format(labels[0]))
 
-    print(labels[0])
     f = open("./export/left/label_{}/{}.jpeg".format(labels[0], count), "wb+")
     f.write(img_enc_left)
     f.close()
