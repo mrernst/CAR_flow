@@ -106,6 +106,9 @@ tf.app.flags.DEFINE_string('train_directory', './',
 tf.app.flags.DEFINE_string('validation_directory', './',
                            'Validation data directory')
 
+# tf.app.flags.DEFINE_string('pdstruct_file',
+#                            '/Users/markus/Desktop/test.gzip',
+#                            'Pandas Dataframe Pickle file')
 # tf.app.flags.DEFINE_string('input_directory',
 #                            '/Users/markus/mountpoint/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/',
 #                            'where the image data is actually stored')
@@ -119,9 +122,7 @@ tf.app.flags.DEFINE_string('output_directory',
                            '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/',
                            'where the tfrecord files will be stored')
 
-tf.app.flags.DEFINE_string('pdstruct_file',
-                           '/Users/markus/Desktop/test.gzip',
-                           'Pandas Dataframe Pickle file')
+
 
 
 tf.app.flags.DEFINE_string(
