@@ -62,12 +62,14 @@ tf.app.flags.DEFINE_boolean('kuzushiji', False,
                             'Use kuzushiji mnist instead')
 tf.app.flags.DEFINE_integer('n_proliferation', 10,
                             'number of generated samples per sample')
-tf.app.flags.DEFINE_integer('n_shards', 10,
+tf.app.flags.DEFINE_integer('n_shards', 1,
                             'number of files for the dataset')
 tf.app.flags.DEFINE_boolean('centered_target', False,
                             'center target in the middle, additional cue')
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'small dataset for testing purposes')
+tf.app.flags.DEFINE_boolean('export', False,
+                            'export to jpeg files')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -134,6 +136,19 @@ def make_tf_example(image_string_left, image_string_right, labels,
             tf.train.Feature(int64_list=tf.train.Int64List(value=[labels[i]]))
 
     return tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
+
+def _write_to_file(img_enc_left, img_enc_right, labels, count):
+    mkdir_p("./export/left/label_{}/".format(labels[0]))
+    mkdir_p("./export/right/label_{}/".format(labels[0]))
+
+    print(labels[0])
+    f = open("./export/left/label_{}/{}.jpeg".format(labels[0], count), "wb+")
+    f.write(img_enc_left)
+    f.close()
+    f = open("./export/right/label_{}/{}.jpeg".format(labels[0], count), "wb+")
+    f.write(img_enc_right)
+    f.close()
 
 
 def pad_to32(img, shape=[32, 32]):
@@ -219,6 +234,7 @@ class OSMNISTBuilder(object):
 
         self.np_rgb_img = tf.compat.v1.placeholder(tf.uint8, shape=[32, 32, 3])
         self.png_rgb_img = tf.image.encode_png(self.np_rgb_img)
+        self.jpeg_rgb_img = tf.image.encode_jpeg(self.np_rgb_img)
 
         self.sess = None
         self.tfr_writer = None
@@ -269,7 +285,7 @@ class OSMNISTBuilder(object):
                                    occlusion_percentage_right,
                                    segmentation_map_left,
                                    segmentation_map_right,
-                                   tfr_writer)
+                                   tfr_writer, c)
                         print('\rProcessing {:08d}/{:08d}...'
                               .format(c, N_OUTPUT), end='')
                         c += 1
@@ -297,7 +313,7 @@ class OSMNISTBuilder(object):
                                occlusion_percentage_right,
                                segmentation_map_left,
                                segmentation_map_right,
-                               tfr_writer)
+                               tfr_writer, c)
                     print('\rProcessing {:08d}/{:08d}...'
                           .format(c, N_OUTPUT), end='')
                     c += 1
@@ -424,32 +440,39 @@ class OSMNISTBuilder(object):
 
     def _save(self, merged_image_left, merged_image_right,
               labels, occlusion_percentage_left, occlusion_percentage_right,
-              segmentation_map_left, segmentation_map_right, writer):
+              segmentation_map_left, segmentation_map_right, writer, count):
+        if FLAGS.export:
+            jpeg_encoded_left = self.sess.run(
+                self.jpeg_img, feed_dict={self.np_img: merged_image_left})
+            jpeg_encoded_right = self.sess.run(
+                self.jpeg_img, feed_dict={self.np_img: merged_image_right})
+            _write_to_file(jpeg_encoded_left, jpeg_encoded_right,
+                           labels, count)
 
-        png_encoded_left = self.sess.run(
-          self.png_img, feed_dict={self.np_img: merged_image_left})
-        png_encoded_right = self.sess.run(
-          self.png_img, feed_dict={self.np_img: merged_image_right})
+        else:
+            png_encoded_left = self.sess.run(
+              self.png_img, feed_dict={self.np_img: merged_image_left})
+            png_encoded_right = self.sess.run(
+              self.png_img, feed_dict={self.np_img: merged_image_right})
 
-        # jpeg_encoded = self.sess.run(
-        # self.jpeg_img, feed_dict={self.np_img: combined_img})
+            png_encoded_map_left = self.sess.run(
+              self.png_rgb_img,
+              feed_dict={self.np_rgb_img: segmentation_map_left})
+            png_encoded_map_right = self.sess.run(
+              self.png_rgb_img,
+              feed_dict={self.np_rgb_img: segmentation_map_right})
 
-        png_encoded_map_left = self.sess.run(
-          self.png_rgb_img, feed_dict={self.np_rgb_img: segmentation_map_left})
-        png_encoded_map_right = self.sess.run(
-          self.png_rgb_img,
-          feed_dict={self.np_rgb_img: segmentation_map_right})
-
-        ex = make_tf_example(png_encoded_left, png_encoded_right,
-                             labels, occlusion_percentage_left,
-                             occlusion_percentage_right, png_encoded_map_left,
-                             png_encoded_map_right)
-        writer.write(ex.SerializeToString())
-
+            ex = make_tf_example(png_encoded_left, png_encoded_right,
+                                 labels, occlusion_percentage_left,
+                                 occlusion_percentage_right,
+                                 png_encoded_map_left,
+                                 png_encoded_map_right)
+            writer.write(ex.SerializeToString())
 
 # ------------
 # main program
 # ------------
+
 
 if __name__ == '__main__':
     # TODO: replace n_proliferation with shards
