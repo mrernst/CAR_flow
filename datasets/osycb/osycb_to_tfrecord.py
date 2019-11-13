@@ -224,6 +224,35 @@ def _convert_to_example(filename_l, image_buffer_l, filename_r, image_buffer_r, 
     return example
 
 
+#TODO replace the _convert_example function with this:
+def make_tf_example(image_string_left, image_string_right, labels,
+                    occlusion_percentage_left, occlusion_percentage_right,
+                    segmentation_string_left, segmentation_string_right):
+    """ Make tf-examples from image strings and labels"""
+    feature_dict = \
+        {'image_left': tf.train.Feature(
+            bytes_list=tf.train.BytesList(value=[image_string_left])),
+            'image_right': tf.train.Feature(
+            bytes_list=tf.train.BytesList(value=[image_string_right])),
+            'occlusion_left': tf.train.Feature(
+            float_list=tf.train.FloatList(value=[occlusion_percentage_left])),
+            'occlusion_right': tf.train.Feature(
+            float_list=tf.train.FloatList(value=[occlusion_percentage_right])),
+            'occlusion_avg': tf.train.Feature(
+            float_list=tf.train.FloatList(value=[
+                (occlusion_percentage_left + occlusion_percentage_right)/2])),
+            'segmap_left': tf.train.Feature(
+            bytes_list=tf.train.BytesList(value=[segmentation_string_left])),
+            'segmap_right': tf.train.Feature(
+            bytes_list=tf.train.BytesList(value=[segmentation_string_right]))
+         }
+
+    for i in range(len(labels)):
+        feature_dict['label{}'.format(i+1)] = \
+            tf.train.Feature(int64_list=tf.train.Int64List(value=[labels[i]]))
+
+    return tf.train.Example(features=tf.train.Features(feature=feature_dict))
+
 class ImageCoder(object):
     """Helper class that provides TensorFlow image coding utilities."""
 
@@ -257,10 +286,32 @@ class ImageCoder(object):
             32,
             32), format='rgb', quality=100)
 
+        self._encode_jpeg_data = tf.placeholder(dtype=tf.uint8)
+        self._encode_jpeg = tf.image.encode_jpeg(
+            self._encode_jpeg_data, format='rgb', quality=100)
+
+        self._encode_png_data = tf.placeholder(dtype=tf.uint8)
+        self._encode_png = tf.image.encode_png(
+            self._encode_png_data)
+
     def central_crop(self, image_data, target_height, target_width):
         # Initializes function that converts rgb to grayscale
         image = self._sess.run(self.cropped,
                                feed_dict={self._crop_data: image_data})
+
+        return image
+
+    def encode_jpeg(self, array):
+        # Initializes function that converts rgb to grayscale
+        image = self._sess.run(self._encode_jpeg,
+                               feed_dict={self._encode_jpeg_data: array})
+
+        return image
+
+    def encode_png(self, array):
+        # Initializes function that converts rgb to grayscale
+        image = self._sess.run(self._encode_png,
+                               feed_dict={self._encode_png_data: array})
 
         return image
 
@@ -330,8 +381,52 @@ def _process_image(filename, coder):
 # TODO: this needs to have additional inputs, too.
 
 
+def _process_segmentation_map(filename_l, height, width, coder):
+    from PIL import Image
+    import numpy as np
+    from scipy.misc import imresize
+    import matplotlib.pyplot as plt
+
+    segmentation_file = filename_l.rsplit('_left', 1)[0]+'.npz'
+    segmaps = np.load(segmentation_file)
+
+    segmap_l = segmaps['segmentation_left']
+    segmap_r = segmaps['segmentation_right']
+
+    segmap_l = imresize(segmap_l, size=(height, width))
+    segmap_r = imresize(segmap_r, size=(height, width))
+    bin_segmap_l = np.array(segmap_l > 0, dtype=int)
+    bin_segmap_r = np.array(segmap_r > 0, dtype=int)
+
+
+    # construct binary maps
+    bin_segmap_l[:, :, 0] = bin_segmap_l[:, :, 0] - \
+        bin_segmap_l[:, :, 1] - bin_segmap_l[:, :, 2]
+    bin_segmap_l[:, :, 1] = bin_segmap_l[:, :, 1] - bin_segmap_l[:, :, 2]
+
+    bin_segmap_r[:, :, 0] = bin_segmap_r[:, :, 0] - \
+        bin_segmap_r[:, :, 1] - bin_segmap_r[:, :, 2]
+    bin_segmap_r[:, :, 1] = bin_segmap_r[:, :, 1] - bin_segmap_r[:, :, 2]
+
+    segmap_l = np.multiply(bin_segmap_l, np.array(segmap_l > 0, dtype=int)*255)
+    segmap_r = np.multiply(bin_segmap_r, np.array(segmap_r > 0, dtype=int)*255)
+
+    jpeg_left = coder.encode_jpeg(segmap_l)
+    jpeg_right = coder.encode_jpeg(segmap_r)
+    #
+    # jpeg_left = coder.encode_png(segmap_l)
+    # jpeg_right = coder.encode_png(segmap_r)
+
+    if FLAGS.central_crop:
+        segmap_l = coder.central_crop(jpeg_left, width//10*4, width//10*4)
+        segmap_r = coder.central_crop(jpeg_right, width//10*4, width//10*4)
+        return segmap_l, segmap_r, height/10*4, width/10*4
+    else:
+        return segmap_l, segmap_r, height, width
+
+
 def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
-                               texts, labels, occ_texts, occ_labels, num_shards):
+                               texts, labels, occ_texts, occ_labels, occ_percs, num_shards):
     """Processes and saves list of images as TFRecord in 1 thread.
 
     Args:
@@ -380,16 +475,23 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
             occ1_label = occ_labels[0][i]
             occ2_label = occ_labels[1][i]
             occ3_label = occ_labels[2][i]
+            occ_left = occ_percs[0][i]
+            occ_right = occ_percs[1][i]
+            occ_avg = occ_percs[2][i]
 
             image_buffer_l, height, width = _process_image(filename_l, coder)
             image_buffer_r, _, _ = _process_image(filename_r, coder)
 
+            # process segmentation_maps
+            seg_buffer_l, seg_buffer_r, height, width = _process_segmentation_map(filename_l, height, width, coder)
+
             if FLAGS.export:
-                _write_to_file(image_buffer_l, image_buffer_r, label
+                _write_to_file(image_buffer_l, image_buffer_r, label,
                                shard_counter*FLAGS.train_shards+counter)
             else:
-                example = _convert_to_example(filename_l, image_buffer_l, filename_r, image_buffer_r, label,
-                                              text, occ1_text, occ2_text, occ3_text, occ1_label, occ2_label, occ3_label, height, width)
+                #example = _convert_to_example(filename_l, image_buffer_l, filename_r, image_buffer_r, label,
+                #                              text, occ1_text, occ2_text, occ3_text, occ1_label, occ2_label, occ3_label, height, width)
+                example = make_tf_example(image_buffer_l, image_buffer_r, (label, occ1_label, occ2_label, occ3_label), occ_left, occ_right, seg_buffer_l, seg_buffer_r)
                 writer.write(example.SerializeToString())
             shard_counter += 1
             counter += 1
@@ -409,7 +511,7 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
     sys.stdout.flush()
 
 
-def _process_image_files(name, filenames, texts, labels, occ_texts, occ_labels, num_shards):
+def _process_image_files(name, filenames, texts, labels, occ_texts, occ_labels, occ_percs, num_shards):
     """Process and save list of images as TFRecord of Example protos.
 
     Args:
@@ -443,7 +545,7 @@ def _process_image_files(name, filenames, texts, labels, occ_texts, occ_labels, 
     threads = []
     for thread_index in range(len(ranges)):
         args = (coder, thread_index, ranges, name, filenames,
-                texts, labels, occ_texts, occ_labels, num_shards)
+                texts, labels, occ_texts, occ_labels, occ_percs, num_shards)
         t = threading.Thread(target=_process_image_files_batch, args=args)
         t.start()
         threads.append(t)
@@ -470,6 +572,10 @@ def _find_image_files_in_struct(pdDataFrameDir, distance):
     occ1_texts = pdDataFrame_l.first_occluder.values
     occ2_texts = pdDataFrame_l.second_occluder.values
     occ3_texts = pdDataFrame_l.third_occluder.values
+
+    occs_avg = pdDataFrame_l.occlusion.values
+    occs_left = pdDataFrame_l.occlusion_left.values
+    occs_right = pdDataFrame_l.occlusion_right.values
 
     # # labels of focussed object
     # unique_labels = pdDataFrame_l.object_in_focus.unique().tolist()
@@ -507,6 +613,10 @@ def _find_image_files_in_struct(pdDataFrameDir, distance):
     occ2_labels = occ2_labels.tolist()
     occ3_labels = occ3_labels.tolist()
 
+    occs_avg = occs_avg.tolist()
+    occs_left = occs_left.tolist()
+    occs_right = occs_right.tolist()
+
     # Shuffle the ordering of all image files in order to guarantee
     # random ordering of the images with respect to label in the
     # saved TFRecord files. Make the randomization repeatable.
@@ -527,6 +637,10 @@ def _find_image_files_in_struct(pdDataFrameDir, distance):
     occ3_labels = [occ3_labels[i] for i in shuffled_index]
     labels = [labels[i] for i in shuffled_index]
 
+    occs_avg = [occs_avg[i] for i in shuffled_index]
+    occs_left = [occs_left[i] for i in shuffled_index]
+    occs_right = [occs_right[i] for i in shuffled_index]
+
     print('Found %d JPEG files across %d labels.' %
           (len(filenames_l), len(unique_labels)))
 
@@ -538,7 +652,8 @@ def _find_image_files_in_struct(pdDataFrameDir, distance):
     occ_texts = (occ1_texts, occ2_texts, occ3_texts)
     occ_labels = (occ1_labels, occ2_labels, occ3_labels)
     filenames = (filenames_l, filenames_r)
-    return filenames, texts, labels, occ_texts, occ_labels
+    occ_percs = (occs_left, occs_right, occs_avg)
+    return filenames, texts, labels, occ_texts, occ_labels, occ_percs
 
 
 def _process_dataset_from_struct(name, pdDataFrameDir, num_shards):
@@ -550,10 +665,10 @@ def _process_dataset_from_struct(name, pdDataFrameDir, num_shards):
       num_shards: integer number of shards for this data set.
     """
     object_distance = float(FLAGS.object_distance)
-    filenames, texts, labels, occ_texts, occ_labels = _find_image_files_in_struct(
+    filenames, texts, labels, occ_texts, occ_labels, occ_percs = _find_image_files_in_struct(
         pdDataFrameDir, object_distance)
     _process_image_files(name + str(FLAGS.object_distance) + FLAGS.name_modifier,
-                         filenames, texts, labels, occ_texts, occ_labels, num_shards)
+                         filenames, texts, labels, occ_texts, occ_labels, occ_percs, num_shards)
 
 
 def main(unused_argv):
