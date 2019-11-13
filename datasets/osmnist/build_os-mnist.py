@@ -441,11 +441,11 @@ class OSMNISTBuilder(object):
               labels, occlusion_percentage_left, occlusion_percentage_right,
               segmentation_map_left, segmentation_map_right, writer, count):
         if FLAGS.export:
-            jpeg_encoded_left = self.sess.run(
+            encoded_left = self.sess.run(
                 self.jpeg_img, feed_dict={self.np_img: merged_image_left})
-            jpeg_encoded_right = self.sess.run(
+            encoded_right = self.sess.run(
                 self.jpeg_img, feed_dict={self.np_img: merged_image_right})
-            _write_to_file(jpeg_encoded_left, jpeg_encoded_right,
+            _write_to_file(encoded_left, encoded_right,
                            labels, count)
 
         else:
