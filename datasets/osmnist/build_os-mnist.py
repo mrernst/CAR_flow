@@ -138,14 +138,16 @@ def make_tf_example(image_string_left, image_string_right, labels,
     return tf.train.Example(features=tf.train.Features(feature=feature_dict))
 
 
-def _write_to_file(img_enc_left, img_enc_right, labels, count):
-    mkdir_p("./export/left/label_{}/".format(labels[0]))
-    mkdir_p("./export/right/label_{}/".format(labels[0]))
+def _write_to_file(img_enc_left, img_enc_right, labels, target, count):
+    mkdir_p("./export/{}/left/label_{}/".format(target, labels[0]))
+    mkdir_p("./export/{}/right/label_{}/".format(target, labels[0]))
 
-    f = open("./export/left/label_{}/{}.jpeg".format(labels[0], count), "wb+")
+    f = open("./export/{}/left/label_{}/{}.jpeg".format(target,
+             labels[0], count), "wb+")
     f.write(img_enc_left)
     f.close()
-    f = open("./export/right/label_{}/{}.jpeg".format(labels[0], count), "wb+")
+    f = open("./export/{}/right/label_{}/{}.jpeg".format(target,
+             labels[0], count), "wb+")
     f.write(img_enc_right)
     f.close()
 
@@ -284,7 +286,7 @@ class OSMNISTBuilder(object):
                                    occlusion_percentage_right,
                                    segmentation_map_left,
                                    segmentation_map_right,
-                                   tfr_writer, c)
+                                   tfr_writer, target, c)
                         print('\rProcessing {:08d}/{:08d}...'
                               .format(c, N_OUTPUT), end='')
                         c += 1
@@ -312,7 +314,7 @@ class OSMNISTBuilder(object):
                                occlusion_percentage_right,
                                segmentation_map_left,
                                segmentation_map_right,
-                               tfr_writer, c)
+                               tfr_writer, target, c)
                     print('\rProcessing {:08d}/{:08d}...'
                           .format(c, N_OUTPUT), end='')
                     c += 1
@@ -439,14 +441,15 @@ class OSMNISTBuilder(object):
 
     def _save(self, merged_image_left, merged_image_right,
               labels, occlusion_percentage_left, occlusion_percentage_right,
-              segmentation_map_left, segmentation_map_right, writer, count):
+              segmentation_map_left, segmentation_map_right, writer, target,
+              count):
         if FLAGS.export:
             encoded_left = self.sess.run(
                 self.jpeg_img, feed_dict={self.np_img: merged_image_left})
             encoded_right = self.sess.run(
                 self.jpeg_img, feed_dict={self.np_img: merged_image_right})
             _write_to_file(encoded_left, encoded_right,
-                           labels, count)
+                           labels, target, count)
 
         else:
             png_encoded_left = self.sess.run(
