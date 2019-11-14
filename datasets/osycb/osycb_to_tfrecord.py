@@ -491,8 +491,7 @@ def _process_image_files_batch(coder, thread_index, ranges, name, filenames,
             seg_buffer_l, seg_buffer_r, height, width = _process_segmentation_map(filename_l, height, width, coder)
 
             if FLAGS.export:
-                _write_to_file(image_buffer_l, image_buffer_r, label,
-                               shard_counter*FLAGS.train_shards+counter)
+                _write_to_file(image_buffer_l, image_buffer_r, label, counter)
             else:
                 #example = _convert_to_example(filename_l, image_buffer_l, filename_r, image_buffer_r, label,
                 #                              text, occ1_text, occ2_text, occ3_text, occ1_label, occ2_label, occ3_label, height, width)
