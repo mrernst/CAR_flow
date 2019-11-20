@@ -269,11 +269,6 @@ class EssenceCollection(object):
         with open(filename, 'rb') as input:
             self.collection = pickle.load(input)
 
-    def plot_barplot_comparison(self, filename):
-        plt.imshow(np.random.random([100, 100]))
-        plt.savefig(filename)
-        pass
-
     def _plot_barplot_comparison(self, filename):
 
         configurations_to_plot = "all"
