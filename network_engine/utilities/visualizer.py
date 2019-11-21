@@ -95,7 +95,12 @@ def anaglyph(npimage1, npimage2, method=half_color_anaglyph):
         ana.save('output.jpg', quality=98)
     """
     m1, m2 = [np.array(m).transpose() for m in method]
-    im1, im2 = npimage1, npimage2
+
+    if (npimage1.shape[-1] == 1 and npimage2.shape[-1] == 1):
+        im1, im2 = np.repeat(npimage1, 3, -1), np.repeat(npimage2, 3, -1)
+    else:
+        im1, im2 = npimage1, npimage2
+
     composite = np.matmul(im1, m1) + np.matmul(im2, m2)
     result = Image.fromarray(composite.astype('uint8'))
 
