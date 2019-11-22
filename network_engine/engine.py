@@ -631,12 +631,12 @@ with tf.compat.v1.Session() as sess:
         sess.run([iterator.initializer, testaverages.reset, embedding.reset],
                  feed_dict={filenames: flnames})
 
-        list_of_output_values = []
+        output_array = np.array([])
         list_of_output_tensors = []
         list_of_bc_values = []
         list_of_occlusion_percentages = []
 
-        for time in network.outputs:
+        for time in range(CONFIG['time_depth']+1):
             list_of_output_tensors.append(tf.nn.softmax(network.outputs[time]))
 
         # delete bool_classification file if it already exists
@@ -656,7 +656,14 @@ with tf.compat.v1.Session() as sess:
                                is_training.placeholder: False})
 
                 # save output and bool_classification data
-                list_of_output_values.append(out)
+                out = np.swapaxes(np.array(out), 0, 1)
+                if len(output_array) == 0:
+                    output_array = out
+                else:
+                    output_array = np.concatenate(
+                        [output_array, out], 0)
+
+
                 list_of_occlusion_percentages += occ.tolist()
                 if CONFIG['label_type'] == "onehot":
                     list_of_bc_values += bc.astype(np.int8).tolist()
@@ -683,7 +690,7 @@ with tf.compat.v1.Session() as sess:
         # pass labels to write to metafile
         return emb, emb_labels, emb_thu, \
             list_of_bc_values, list_of_occlusion_percentages, \
-            list_of_output_values
+            output_array
 
     def write_embeddings_to_disk(emb, emb_labels, emb_thu, list_of_bc_values):
         saver.save(sess, CHECKPOINT_DIRECTORY +
@@ -744,21 +751,15 @@ with tf.compat.v1.Session() as sess:
         # TODO: maybe evaluation directory is not needed? helper..
         # TODO: get the occlusion percentages here also
         emb, emb_labels, emb_thu, list_of_bc_values, \
-            list_of_occlusion_percentages, list_of_output_values = evaluating(
+            list_of_occlusion_percentages, output_array = evaluating(
                 global_step.eval(), flnames=flnames)
 
         embedding_data = {}
-        # cleanup output-list
-        out_shape = list(np.array(list_of_output_values).shape)
-        out_shape[2] = out_shape[2] * out_shape[0]
-        out_shape = out_shape[1:]
-        list_of_output_values = \
-            np.array(list_of_output_values).reshape(out_shape)
 
         evaluation_data = \
             {'boolean_classification': np.array(list_of_bc_values),
              'occlusion_percentage': np.array(list_of_occlusion_percentages),
-             'softmax_output': np.array(list_of_output_values)}
+             'softmax_output': output_array}
         if projector_bool:
             write_embeddings_to_disk(emb, emb_labels, emb_thu,
                                      list_of_bc_values)
