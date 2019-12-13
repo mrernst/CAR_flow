@@ -526,7 +526,7 @@ class Conv2DModule(VariableModule):
         super().__init__(name, filter_shape, strides, padding)
         self.strides = strides
         self.padding = padding
-        self.init_mean = init_mean
+        self.init_mean = init_mean if init_mean is not None else 0.0
         self.init_std = init_std if init_std is not None else \
             (2 / np.prod(self.filter_shape))
 
@@ -586,7 +586,7 @@ class Conv2DTransposeModule(VariableModule):
         self.strides = strides
         self.output_shape = output_shape
         self.padding = padding
-        self.init_mean = init_mean
+        self.init_mean = init_mean if init_mean is not None else 0.0
         self.init_std = init_std if init_std is not None else 0.1
 
     def operation(self, x):
@@ -750,7 +750,7 @@ class FullyConnectedModule(VariableModule):
         self.in_size = in_size
         self.out_size = out_size
         super().__init__(name, in_size, out_size)
-        self.init_mean = init_mean
+        self.init_mean = init_mean if init_mean is not None else 0.0
         self.init_std = init_std if init_std is not None else 0.1
 
     def operation(self, x):
