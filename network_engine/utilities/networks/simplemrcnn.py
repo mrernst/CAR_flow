@@ -61,12 +61,13 @@ class TimeConvolutionalLayerModule(bb.TimeComposedModule):
     (input and preactivation).
     """
     def define_inner_modules(self, name, activation, filter_shape, strides,
-                             bias_shape, padding='SAME'):
+                             bias_shape, w_init_m=None, w_init_std=None,
+                             padding='SAME'):
         # multiply_inputs=True
 
         self.input_module = bb.TimeAddModule(name + "_input")
         self.conv = bb.Conv2DModule(name + "_conv", filter_shape, strides,
-                                    padding=padding)
+                                    w_init_m, w_init_std, padding=padding)
         self.bias = bb.BiasModule(name + "_bias", bias_shape)
         self.preactivation = bb.TimeMultModule(name + "_preactivation")
         self.preactivation_plus = bb.AddModule(
@@ -76,6 +77,7 @@ class TimeConvolutionalLayerModule(bb.TimeComposedModule):
         # wiring of modules
         self.conv.add_input(self.input_module)
         self.preactivation.add_input(self.conv, 0)
+        self.preactivation_plus.add_input(self.preactivation)
         self.preactivation_plus.add_input(self.bias)
         self.output_module.add_input(self.preactivation_plus)
 
@@ -92,11 +94,11 @@ class TimeConvolutionalLayerWithBatchNormalizationModule(
     def define_inner_modules(self, name, n_out, is_training, beta_init,
                              gamma_init, ema_decay_rate, activation,
                              filter_shape, strides, bias_shape,
-                             padding='SAME'):
+                             w_init_m=None, w_init_std=None, padding='SAME'):
 
         self.input_module = bb.TimeAddModule(name + "_input")
         self.conv = bb.Conv2DModule(name + "_conv", filter_shape, strides,
-                                    padding=padding)
+                                    w_init_m, w_init_std, padding=padding)
         # self.bias = BiasModule(name + "_bias", bias_shape)
         self.preactivation = bb.TimeMultModule(name + "_preactivation")
         self.batchnorm = bb.BatchNormalizationModule(name + "_batchnorm",
@@ -165,6 +167,11 @@ def constructor(name,
                 configuration_dict['image_width'],
                 n_features]]
 
+        net_param_dict["global_weight_init_mean"] = \
+            configuration_dict['global_weight_init_mean']
+        net_param_dict["global_weight_init_std"] = \
+            configuration_dict['global_weight_init_std']
+
         return net_param_dict
 
     if custom_net_parameters:
@@ -193,12 +200,16 @@ class NetworkClass(bb.ComposedModule):
                         is_training, 0.0, 1.0, 0.5,
                         self.net_params['activations'][0],
                         self.net_params['conv_filter_shapes'][0],
-                        [1, 1, 1, 1], self.net_params['bias_shapes'][0])
+                        [1, 1, 1, 1], self.net_params['bias_shapes'][0],
+                        self.net_params['global_weight_init_mean'],
+                        self.net_params['global_weight_init_std'])
             else:
                 self.layers["conv0"] = TimeConvolutionalLayerModule(
                     "conv0", self.net_params['activations'][0],
                     self.net_params['conv_filter_shapes'][0],
-                    [1, 1, 1, 1], self.net_params['bias_shapes'][0])
+                    [1, 1, 1, 1], self.net_params['bias_shapes'][0],
+                    self.net_params['global_weight_init_mean'],
+                    self.net_params['global_weight_init_std'])
         if 'L' in self.net_params['connectivity']:
             with tf.name_scope('lateral_layer_0'):
                 # mutability kicked my ass here
@@ -207,7 +218,9 @@ class NetworkClass(bb.ComposedModule):
                 tmp = lateral_filter_shape[2]
                 lateral_filter_shape[2] = lateral_filter_shape[3]
                 self.layers["lateral0"] = bb.Conv2DModule(
-                    "lateral0", lateral_filter_shape, [1, 1, 1, 1])
+                    "lateral0", lateral_filter_shape, [1, 1, 1, 1],
+                    self.net_params['global_weight_init_mean'],
+                    self.net_params['global_weight_init_std'])
                 self.layers["lateral0_batchnorm"] = \
                     bb.BatchNormalizationModule(
                     "lateral0_batchnorm", lateral_filter_shape[-1],
@@ -232,18 +245,24 @@ class NetworkClass(bb.ComposedModule):
                         is_training, 0.0, 1.0, 0.5,
                         self.net_params['activations'][1],
                         self.net_params['conv_filter_shapes'][1],
-                        [1, 1, 1, 1], self.net_params['bias_shapes'][1])
+                        [1, 1, 1, 1], self.net_params['bias_shapes'][1],
+                        self.net_params['global_weight_init_mean'],
+                        self.net_params['global_weight_init_std'])
             else:
                 self.layers["conv1"] = TimeConvolutionalLayerModule(
                     "conv1", self.net_params['activations'][1],
                     self.net_params['conv_filter_shapes'][1],
-                    [1, 1, 1, 1], self.net_params['bias_shapes'][1])
+                    [1, 1, 1, 1], self.net_params['bias_shapes'][1],
+                    self.net_params['global_weight_init_mean'],
+                    self.net_params['global_weight_init_std'])
 
         if 'T' in self.net_params['connectivity']:
             with tf.name_scope('topdown_layer_0'):
                 self.layers["topdown0"] = bb.Conv2DTransposeModule(
                     "topdown0", self.net_params['topdown_filter_shapes'][0],
-                    [1, 2, 2, 1], self.net_params['topdown_output_shapes'][0])
+                    [1, 2, 2, 1], self.net_params['topdown_output_shapes'][0],
+                    self.net_params['global_weight_init_mean'],
+                    self.net_params['global_weight_init_std'])
                 self.layers["topdown0_batchnorm"] = \
                     bb.BatchNormalizationModule(
                     "topdown0_batchnorm",
@@ -258,7 +277,9 @@ class NetworkClass(bb.ComposedModule):
                 tmp = lateral_filter_shape[2]
                 lateral_filter_shape[2] = lateral_filter_shape[3]
                 self.layers["lateral1"] = bb.Conv2DModule(
-                    "lateral1", lateral_filter_shape, [1, 1, 1, 1])
+                    "lateral1", lateral_filter_shape, [1, 1, 1, 1],
+                    self.net_params['global_weight_init_mean'],
+                    self.net_params['global_weight_init_std'])
                 self.layers["lateral1_batchnorm"] = \
                     bb.BatchNormalizationModule(
                     "lateral1_batchnorm", lateral_filter_shape[-1],
@@ -286,7 +307,9 @@ class NetworkClass(bb.ComposedModule):
                         int(np.prod(
                             np.array(self.net_params['bias_shapes'][1]) /
                             np.array(self.net_params['pool_strides'][1]))),
-                        np.prod(self.net_params['bias_shapes'][2]))
+                        np.prod(self.net_params['bias_shapes'][2]),
+                        self.net_params['global_weight_init_mean'],
+                        self.net_params['global_weight_init_std'])
             else:
                 self.layers["fc0"] = \
                     bb.FullyConnectedLayerModule(
@@ -294,7 +317,9 @@ class NetworkClass(bb.ComposedModule):
                         int(np.prod(
                             np.array(self.net_params['bias_shapes'][1]) /
                             np.array(self.net_params['pool_strides'][1]))),
-                        np.prod(self.net_params['bias_shapes'][2]))
+                        np.prod(self.net_params['bias_shapes'][2]),
+                        self.net_params['global_weight_init_mean'],
+                        self.net_params['global_weight_init_std'])
 
         # connect all modules of the network in a meaningful way
         # -----

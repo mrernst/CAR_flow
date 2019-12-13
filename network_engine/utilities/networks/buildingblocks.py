@@ -506,7 +506,7 @@ class Conv2DModule(VariableModule):
     """
 
     def __init__(self, name, filter_shape, strides,
-                 init_mean=0.0, init_std=None, padding='SAME'):
+                 init_mean=None, init_std=None, padding='SAME'):
         """
         Creates a Conv2DModule object
 
@@ -523,12 +523,12 @@ class Conv2DModule(VariableModule):
         For more information see tf.nn.conv2d
         """
         self.filter_shape = filter_shape
-        super().__init__(name, filter_shape, strides, padding)
-        self.strides = strides
-        self.padding = padding
         self.init_mean = init_mean if init_mean is not None else 0.0
         self.init_std = init_std if init_std is not None else \
             (2 / np.prod(self.filter_shape))
+        super().__init__(name, filter_shape, strides, padding)
+        self.strides = strides
+        self.padding = padding
 
     def operation(self, x):
         """
@@ -563,7 +563,7 @@ class Conv2DTransposeModule(VariableModule):
     input module and performs a deconvolution.
     """
     def __init__(self, name, filter_shape, strides, output_shape,
-                 init_mean=0.0, init_std=None, padding='SAME'):
+                 init_mean=None, init_std=None, padding='SAME'):
         """
         Creates a Conv2DTransposeModule object
 
@@ -582,12 +582,13 @@ class Conv2DTransposeModule(VariableModule):
         """
 
         self.filter_shape = filter_shape
+        self.init_mean = init_mean if init_mean is not None else 0.0
+        self.init_std = init_std if init_std is not None else 0.1
         super().__init__(name, filter_shape, strides, output_shape, padding)
         self.strides = strides
         self.output_shape = output_shape
         self.padding = padding
-        self.init_mean = init_mean if init_mean is not None else 0.0
-        self.init_std = init_std if init_std is not None else 0.1
+
 
     def operation(self, x):
         """
@@ -733,7 +734,7 @@ class FullyConnectedModule(VariableModule):
     FullyConnectedModule inherits from VariableModule. It takes a single module
     as input and performs a basic matrix multiplication without bias
     """
-    def __init__(self, name, in_size, out_size, init_mean=0.0, init_std=None):
+    def __init__(self, name, in_size, out_size, init_mean=None, init_std=None):
         """
         Creates FullyConnectedModule object
 
@@ -749,9 +750,9 @@ class FullyConnectedModule(VariableModule):
 
         self.in_size = in_size
         self.out_size = out_size
-        super().__init__(name, in_size, out_size)
         self.init_mean = init_mean if init_mean is not None else 0.0
         self.init_std = init_std if init_std is not None else 0.1
+        super().__init__(name, in_size, out_size)
 
     def operation(self, x):
         """
@@ -1415,12 +1416,13 @@ class TimeConvolutionalLayerModule(TimeComposedModule):
     (input and preactivation).
     """
     def define_inner_modules(self, name, activation, filter_shape, strides,
-                             bias_shape, padding='SAME'):
+                             bias_shape, w_init_m=None, w_init_std=None,
+                             padding='SAME'):
         # multiply_inputs=True
 
         self.input_module = TimeAddModule(name + "_input")
         self.conv = Conv2DModule(name + "_conv", filter_shape, strides,
-                                 padding=padding)
+                                 w_init_m, w_init_std, padding=padding)
         self.bias = BiasModule(name + "_bias", bias_shape)
         self.preactivation = TimeAddModule(name + "_preactivation")
         # self.preactivation_plus = TimeAddModule(
@@ -1445,11 +1447,11 @@ class TimeConvolutionalLayerWithBatchNormalizationModule(TimeComposedModule):
     def define_inner_modules(self, name, n_out, is_training, beta_init,
                              gamma_init, ema_decay_rate, activation,
                              filter_shape, strides, bias_shape,
-                             padding='SAME'):
+                             w_init_m=None, w_init_std=None, padding='SAME'):
 
         self.input_module = TimeAddModule(name + "_input")
         self.conv = Conv2DModule(name + "_conv", filter_shape, strides,
-                                 padding=padding)
+                                 w_init_m, w_init_std, padding=padding)
         # self.bias = BiasModule(name + "_bias", bias_shape)
         self.preactivation = TimeAddModule(name + "_preactivation")
         self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out,
@@ -1473,9 +1475,11 @@ class FullyConnectedLayerModule(ComposedModule):
     module performs a full connection and applies a bias and an
     activation function. It does not allow recursions.
     """
-    def define_inner_modules(self, name, activation, in_size, out_size):
+    def define_inner_modules(self, name, activation, in_size, out_size,
+                             w_init_m=None, w_init_std=None):
         self.input_module = FullyConnectedModule(name + "_fc", in_size,
-                                                 out_size)
+                                                 out_size,
+                                                 w_init_m, w_init_std)
         self.bias = BiasModule(name + "_bias", (1, out_size))
         self.preactivation = AddModule(name + "_preactivation")
         self.output_module = ActivationModule(name + "_output", activation)
@@ -1493,10 +1497,11 @@ class FullyConnectedLayerWithBatchNormalizationModule(ComposedModule):
     """
     def define_inner_modules(self, name, n_out, is_training, beta_init,
                              gamma_init, ema_decay_rate, activation, in_size,
-                             out_size):
+                             out_size, w_init_m=None, w_init_std=None):
 
         self.input_module = FullyConnectedModule(name + "_fc", in_size,
-                                                 out_size)
+                                                 out_size,
+                                                 w_init_m, w_init_std)
         # self.bias = BiasModule(name + "_bias", (1, out_size))
         self.preactivation = AddModule(name + "_preactivation")
         self.batchnorm = BatchNormalizationModule(name + "_batchnorm", n_out,
