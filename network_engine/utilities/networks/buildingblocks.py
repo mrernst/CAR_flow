@@ -505,7 +505,8 @@ class Conv2DModule(VariableModule):
     and performs a convolution.
     """
 
-    def __init__(self, name, filter_shape, strides, padding='SAME'):
+    def __init__(self, name, filter_shape, strides,
+                 init_mean=0.0, init_std=None, padding='SAME'):
         """
         Creates a Conv2DModule object
 
@@ -514,6 +515,8 @@ class Conv2DModule(VariableModule):
           filter_shape:       array, defines the shape of the filter
           strides:            list of ints length 4, stride of the sliding
                               window for each dimension of input
+          init_mean:          float, mean value of the weight initialization
+          init_std:           float, stddev value of the weight initialization
           padding:            string from: "SAME", "VALID", type of padding
                               algorithm to use.
 
@@ -523,6 +526,9 @@ class Conv2DModule(VariableModule):
         super().__init__(name, filter_shape, strides, padding)
         self.strides = strides
         self.padding = padding
+        self.init_mean = init_mean
+        self.init_std = init_std if init_std is not None else \
+            (2 / np.prod(self.filter_shape))
 
     def operation(self, x):
         """
@@ -545,7 +551,8 @@ class Conv2DModule(VariableModule):
         """
         self.weights = tf.Variable(tf.random.truncated_normal(
             shape=self.filter_shape,
-            stddev=2 / np.prod(self.filter_shape)), name=name)
+            mean=self.init_mean,
+            stddev=self.init_std), name=name)
 
 # TODO: weight initializer with xavier glorot init
 
@@ -556,7 +563,7 @@ class Conv2DTransposeModule(VariableModule):
     input module and performs a deconvolution.
     """
     def __init__(self, name, filter_shape, strides,
-                 output_shape, padding='SAME'):
+                 init_mean=0.0, init_std=None, output_shape, padding='SAME'):
         """
         Creates a Conv2DTransposeModule object
 
@@ -566,6 +573,8 @@ class Conv2DTransposeModule(VariableModule):
           output_shape:       array, output shape of the deconvolution op
           strides:            list of ints length 4, stride of the sliding
                               window for each dimension of input
+          init_mean:          float, mean value of the weight initialization
+          init_std:           float, stddev value of the weight initialization
           padding:            string from: "SAME", "VALID", type of padding
                               algorithm to use.
 
@@ -577,6 +586,8 @@ class Conv2DTransposeModule(VariableModule):
         self.strides = strides
         self.output_shape = output_shape
         self.padding = padding
+        self.init_mean = init_mean
+        self.init_std = init_std if init_std is not None else 0.1
 
     def operation(self, x):
         """
@@ -601,7 +612,8 @@ class Conv2DTransposeModule(VariableModule):
         constructor.
         """
         self.weights = tf.Variable(tf.random.truncated_normal(
-            shape=self.filter_shape, stddev=0.1), name=name)
+            shape=self.filter_shape,
+            mean=self.init_mean, stddev=self.init_std), name=name)
 
 
 class MaxPoolingModule(OperationModule):
@@ -721,7 +733,7 @@ class FullyConnectedModule(VariableModule):
     FullyConnectedModule inherits from VariableModule. It takes a single module
     as input and performs a basic matrix multiplication without bias
     """
-    def __init__(self, name, in_size, out_size):
+    def __init__(self, name, in_size, out_size, init_mean=0.0, init_std=None):
         """
         Creates FullyConnectedModule object
 
@@ -731,11 +743,15 @@ class FullyConnectedModule(VariableModule):
                                   previous layer
           out_size:             int, the number of neurons in the
                                   current new layer
+          init_mean:          float, mean value of the weight initialization
+          init_std:           float, stddev value of the weight initialization
         """
 
         self.in_size = in_size
         self.out_size = out_size
         super().__init__(name, in_size, out_size)
+        self.init_mean = init_mean
+        self.init_std = init_std if init_std is not None else 0.1
 
     def operation(self, x):
         """
@@ -760,7 +776,8 @@ class FullyConnectedModule(VariableModule):
         """
         self.weights = tf.Variable(
             tf.random.truncated_normal(shape=(self.in_size, self.out_size),
-                                       stddev=0.1), name=name)
+                                       mean=self.init_mean,
+                                       stddev=self.init_std), name=name)
 
 
 class DropoutModule(OperationModule):
@@ -1849,7 +1866,7 @@ class InputCanvasModule(OperationModule):
         self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
                                                     name=self.name)
         self.canvas = tf.Variable(tf.random.truncated_normal(shape=self.shape,
-                                  stddev=0.1), name=name)
+                                  mean=0.0, stddev=0.1), name=name)
         # self.canvas = tf.Variable(tf.zeros(shape=self.shape), name=name)
         # self.canvas = tf.get_variable(name=self.name,
         #                               shape=[],dtype=tf.float32)
