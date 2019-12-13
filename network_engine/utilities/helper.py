@@ -548,6 +548,8 @@ def convert_config_types(config_dictionary):
             elif ('True' in value) or ('False' in value):
                 config_dictionary[key] = value.lower() in \
                     ("yes", "true", "t", "1")
+            elif 'None' in value:
+                config_dictionary[key] = None
             else:
                 config_dictionary[key] = int(value)
         except(ValueError, TypeError):
