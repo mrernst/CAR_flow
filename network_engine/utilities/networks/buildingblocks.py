@@ -562,8 +562,8 @@ class Conv2DTransposeModule(VariableModule):
     Conv2DTransposeModule inherits from VariableModule. It takes a single
     input module and performs a deconvolution.
     """
-    def __init__(self, name, filter_shape, strides,
-                 init_mean=0.0, init_std=None, output_shape, padding='SAME'):
+    def __init__(self, name, filter_shape, strides, output_shape,
+                 init_mean=0.0, init_std=None, padding='SAME'):
         """
         Creates a Conv2DTransposeModule object
 
