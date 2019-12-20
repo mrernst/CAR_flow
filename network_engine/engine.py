@@ -81,7 +81,7 @@ import utilities.afterburner as afterburner
 
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', '/Users/markus/Research/Code/' + #'/home/mernst/git/'+
+tf.app.flags.DEFINE_string('config_file', '/home/mernst/git/'+  #'/Users/markus/Research/Code/' + #'/home/mernst/git/'+
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
@@ -493,7 +493,6 @@ error.add_input(error, -1)  # seems to work, but is this the right way..?
 optimizer.add_input(error)
 accuracy.add_input(network)
 accuracy.add_input(labels)
-
 
 # L2 regularization term
 if CONFIG['l2_lambda'] != 0:
