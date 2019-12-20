@@ -88,11 +88,19 @@ def constructor(name,
 
         if "F" in configuration_dict['connectivity']:
             net_param_dict["n_features"] = \
-                net_param_dict["n_features"]*2
+                net_param_dict["n_features"] * 2
 
         if "K" in configuration_dict['connectivity']:
             net_param_dict["receptive_pixels"] = np.array(
                 [11, 7, 5, 5, 5, 5, 3])
+
+        # Deeper network for comparison studies BD
+        if "D" in configuration_dict['connectivity']:
+            net_param_dict["receptive_pixels"] = np.repeat(
+                net_param_dict["receptive_pixels"], 2)
+            net_param_dict["n_features"] = np.repeat(
+                net_param_dict["n_features"], 2)
+            net_param_dict["depth"] = net_param_dict["depth"] * 2
 
         net_param_dict["activations"] = [
             bb.lrn_relu,
@@ -436,26 +444,52 @@ class NetworkClass(bb.ComposedModule):
                 self.layers["conv{}".format(
                     (lnr + 1))].add_input(self.layers["dropoutc{}".format(lnr)], 0)
 
-            for lnr in range(self.net_params['depth']):
-                # pooling layers
-                self.layers["pool{}".format(lnr)].add_input(
-                    self.layers["conv{}".format(lnr)])
-                self.layers["dropoutc{}".format((lnr))].add_input(
-                    self.layers["pool{}".format(lnr)])
-                if "L" in self.net_params["connectivity"]:
-                    # lateral layers
-                    if self.net_params["batchnorm"]:
-                        self.layers["lateral{}".format(lnr)].add_input(
-                            self.layers["conv{}".format(lnr)])
-                        self.layers["lateral{}_batchnorm".format(lnr)].add_input(
-                            self.layers["lateral{}".format(lnr)])
-                        self.layers["conv{}".format(lnr)].preactivation.add_input(
-                            self.layers["lateral{}_batchnorm".format(lnr)], -1)
-                    else:
-                        self.layers["lateral{}".format(lnr)].add_input(
-                            self.layers["conv{}".format(lnr)])
-                        self.layers["conv{}".format(lnr)].preactivation.add_input(
-                            self.layers["lateral{}".format(lnr)], -1)
+
+            if "D" in self.net_params["connectivity"]:
+                for lnr in range(0, self.net_params['depth'], 2):
+                    # pooling layers
+                    self.layers["conv{}".format(lnr+1)].add_input(
+                        self.layers["conv{}".format(lnr)])
+                    self.layers["pool{}".format(lnr+1)].add_input(
+                        self.layers["conv{}".format(lnr+1)])
+                    self.layers["dropoutc{}".format((lnr+1))].add_input(
+                        self.layers["pool{}".format(lnr+1)])
+
+                    if "L" in self.net_params["connectivity"]:
+                        # lateral layers
+                        if self.net_params["batchnorm"]:
+                            self.layers["lateral{}".format(lnr)].add_input(
+                                self.layers["conv{}".format(lnr)])
+                            self.layers["lateral{}_batchnorm".format(lnr)].add_input(
+                                self.layers["lateral{}".format(lnr)])
+                            self.layers["conv{}".format(lnr)].preactivation.add_input(
+                                self.layers["lateral{}_batchnorm".format(lnr)], -1)
+                        else:
+                            self.layers["lateral{}".format(lnr)].add_input(
+                                self.layers["conv{}".format(lnr)])
+                            self.layers["conv{}".format(lnr)].preactivation.add_input(
+                                self.layers["lateral{}".format(lnr)], -1)
+            else:
+                for lnr in range(self.net_params['depth']):
+                    # pooling layers
+                    self.layers["pool{}".format(lnr)].add_input(
+                        self.layers["conv{}".format(lnr)])
+                    self.layers["dropoutc{}".format((lnr))].add_input(
+                        self.layers["pool{}".format(lnr)])
+                    if "L" in self.net_params["connectivity"]:
+                        # lateral layers
+                        if self.net_params["batchnorm"]:
+                            self.layers["lateral{}".format(lnr)].add_input(
+                                self.layers["conv{}".format(lnr)])
+                            self.layers["lateral{}_batchnorm".format(lnr)].add_input(
+                                self.layers["lateral{}".format(lnr)])
+                            self.layers["conv{}".format(lnr)].preactivation.add_input(
+                                self.layers["lateral{}_batchnorm".format(lnr)], -1)
+                        else:
+                            self.layers["lateral{}".format(lnr)].add_input(
+                                self.layers["conv{}".format(lnr)])
+                            self.layers["conv{}".format(lnr)].preactivation.add_input(
+                                self.layers["lateral{}".format(lnr)], -1)
 
             for lnr in range(self.net_params['depth'] - 1):
                 # topdown layers
