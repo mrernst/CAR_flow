@@ -80,16 +80,19 @@ def constructor(name,
 
     def get_net_parameters(configuration_dict):
         net_param_dict = {}
-        net_param_dict["receptive_pixels"] = [7, 5, 3, 3, 3, 3, 1]
-        net_param_dict["n_features"] = [96, 125, 196, 256, 512, 1024, 2048]
+        net_param_dict["receptive_pixels"] = np.array(
+            [7, 5, 3, 3, 3, 3, 1])
+        net_param_dict["n_features"] = np.array(
+            [96, 125, 196, 256, 512, 1024, 2048])
         net_param_dict["depth"] = len(net_param_dict["receptive_pixels"])
 
         if "F" in configuration_dict['connectivity']:
             net_param_dict["n_features"] = \
-                [192, 250, 392, 512, 1024, 2048, 4096]
+                net_param_dict["n_features"]*2
 
         if "K" in configuration_dict['connectivity']:
-            net_param_dict["receptive_pixels"] = [11, 7, 5, 5, 5, 5, 3]
+            net_param_dict["receptive_pixels"] = np.array(
+                [11, 7, 5, 5, 5, 5, 3])
 
         net_param_dict["activations"] = [
             bb.lrn_relu,
@@ -241,6 +244,9 @@ def constructor(name,
     net_parameters['connectivity'] = configuration_dict['connectivity']
     net_parameters['batchnorm'] = configuration_dict['batchnorm']
 
+    # longrange connection parameters for B, L, and T connections
+    net_parameters['BLT_longrange'] = configuration_dict['BLT_longrange']
+
     return NetworkClass(name, net_parameters, is_training, keep_prob)
 
 class NetworkClass(bb.ComposedModule):
@@ -260,8 +266,8 @@ class NetworkClass(bb.ComposedModule):
 
         self.layers = {}
 
-        with tf.name_scope('flatpool_0'):
-            self.layers['flatpool0'] = bb.FlattenModule('flatpool0')
+        # with tf.name_scope('flatpool_0'):
+        #     self.layers['flatpool0'] = bb.FlattenModule('flatpool0')
 
         with tf.name_scope('global_average_pooling'):
             self.layers['gap'] = bb.GlobalAveragePoolingModule('gap')
@@ -386,10 +392,29 @@ class NetworkClass(bb.ComposedModule):
                     )
 
         # longrange topdown connections
-        for i in range(1, self.net_params['depth']):
-            for lnr in range(self.net_params['depth'] - i):
-                # TODO: implement long range connections
-                pass
+        # TODO: implement long range connections
+        # for i in range(1, self.net_params['depth']):
+        #     for lnr in range(self.net_params['depth'] - i):
+        #         with tf.name_scope('longrange_topdown_layer_{}'.format(lnr)):
+        #             self.layers["longrange_topdown{}".format(lnr)] = \
+        #                 bb.Conv2DTransposeModule(
+        #                 "topdown{}".format(lnr),
+        #                 self.net_params['topdown_filter_shapes'][lnr],
+        #                 [1, 2, 2, 1],
+        #                 self.net_params['topdown_output_shapes'][lnr]
+        #             )
+        #             self.layers["longrange_topdown{}_batchnorm".format(lnr)] = \
+        #                 bb.BatchNormalizationModule("longrange_topdown{}_batchnorm".format(lnr),
+        #                 self.net_params[
+        #                  'topdown_output_shapes'][lnr][-1],
+        #                 is_training,
+        #                 beta_init=0.0,
+        #                 gamma_init=0.1,
+        #                 ema_decay_rate=0.5,
+        #                 moment_axes=[0, 1, 2],
+        #                 variance_epsilon=1e-3
+        #                 )
+        #         pass
 
         # connect all modules of the network in a meaningful way
         # -----
@@ -398,13 +423,13 @@ class NetworkClass(bb.ComposedModule):
             self.output_module = self.layers["fc0"]
 
         with tf.name_scope('wiring_of_modules'):
-            #self.layers["gap"].add_input(self.layers["dropoutc{}".format(
-            #    self.net_params['depth']-1)
+            self.layers["gap"].add_input(self.layers["dropoutc{}".format(
+                self.net_params['depth']-1)])
             #])  # TODO: is this correct?
 
-            self.layers["flatpool0"].add_input(
-                self.layers["dropoutc{}".format(self.net_params['depth'] - 1)])
-            self.layers["fc0"].add_input(self.layers["flatpool0"])
+            # self.layers["flatpool0"].add_input(
+            #     self.layers["dropoutc{}".format(self.net_params['depth'] - 1)])
+            self.layers["fc0"].add_input(self.layers["gap"])
 
             for lnr in range(self.net_params['depth'] - 1):
                 # convolutional layers
