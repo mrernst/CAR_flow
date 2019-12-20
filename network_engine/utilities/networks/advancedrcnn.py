@@ -84,7 +84,8 @@ def constructor(name,
             [7, 5, 3, 3, 3, 3, 1])
         net_param_dict["n_features"] = np.array(
             [96, 125, 196, 256, 512, 1024, 2048])
-        net_param_dict["depth"] = len(net_param_dict["receptive_pixels"])
+        net_param_dict["depth"] = configuration_dict["network_depth"]
+        # len(net_param_dict["receptive_pixels"])
 
         if "F" in configuration_dict['connectivity']:
             net_param_dict["n_features"] = \
@@ -94,13 +95,6 @@ def constructor(name,
             net_param_dict["receptive_pixels"] = np.array(
                 [11, 7, 5, 5, 5, 5, 3])
 
-        # Deeper network for comparison studies BD
-        if "D" in configuration_dict['connectivity']:
-            net_param_dict["receptive_pixels"] = np.repeat(
-                net_param_dict["receptive_pixels"], 2)
-            net_param_dict["n_features"] = np.repeat(
-                net_param_dict["n_features"], 2)
-            net_param_dict["depth"] = net_param_dict["depth"] * 2
 
         net_param_dict["activations"] = [
             bb.lrn_relu,
@@ -240,6 +234,31 @@ def constructor(name,
              int(np.ceil(configuration_dict['image_width'] / (2**5))),
              net_param_dict['n_features'][5]]
         ]
+
+        # Deeper network for comparison studies BD
+        # TODO: B-D does not yet work
+        if "D" in configuration_dict['connectivity']:
+            net_param_dict["receptive_pixels"] = np.repeat(
+                net_param_dict["receptive_pixels"], 2, 0)
+            net_param_dict["n_features"] = np.repeat(
+                net_param_dict["n_features"], 2, 0)
+            net_param_dict["pool_sizes"] = np.repeat(
+                net_param_dict["pool_sizes"], 2, 0)
+            net_param_dict["pool_strides"] = np.repeat(
+                net_param_dict["pool_strides"], 2, 0)
+            net_param_dict["bias_shapes"] = list(np.repeat(
+                net_param_dict["bias_shapes"], 2, 0))
+            del net_param_dict["bias_shapes"][-1]
+            net_param_dict["conv_filter_shapes"] = np.repeat(
+                net_param_dict["conv_filter_shapes"], 2, 0)
+            net_param_dict["activations"] = np.repeat(
+                net_param_dict["activations"], 2, 0)
+            net_param_dict["topdown_filter_shapes"] = np.repeat(
+                net_param_dict["topdown_filter_shapes"], 2, 0)
+            net_param_dict["topdown_output_shapes"] = np.repeat(
+                net_param_dict["topdown_output_shapes"], 2, 0)
+
+            net_param_dict["depth"] = net_param_dict["depth"] * 2
 
         return net_param_dict
 
