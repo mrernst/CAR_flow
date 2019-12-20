@@ -177,57 +177,57 @@ def constructor(name,
         ]
 
         net_param_dict["topdown_filter_shapes"] = [
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][0],
-             configuration_dict['n_features'][1]],
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][1],
-             configuration_dict['n_features'][2]],
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][2],
-             configuration_dict['n_features'][3]],
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][3],
-             configuration_dict['n_features'][4]],
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][4],
-             configuration_dict['n_features'][5]],
-            [configuration_dict['receptive_pixels'][0],
-             configuration_dict['receptive_pixels'][0],
-             configuration_dict['n_features'][5],
-             configuration_dict['n_features'][6]]
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][0],
+             net_param_dict['n_features'][1]],
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][1],
+             net_param_dict['n_features'][2]],
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][2],
+             net_param_dict['n_features'][3]],
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][3],
+             net_param_dict['n_features'][4]],
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][4],
+             net_param_dict['n_features'][5]],
+            [net_param_dict['receptive_pixels'][0],
+             net_param_dict['receptive_pixels'][0],
+             net_param_dict['n_features'][5],
+             net_param_dict['n_features'][6]]
         ]
 
         net_param_dict["topdown_output_shapes"] = [
             [configuration_dict['batchsize'],
              configuration_dict['image_height'],
              configuration_dict['image_width'],
-             configuration_dict['n_features'][0]],
+             net_param_dict['n_features'][0]],
             [configuration_dict['batchsize'],
              int(np.ceil(configuration_dict['image_height'] / (2**1))),
              int(np.ceil(configuration_dict['image_width'] / (2**1))),
-             configuration_dict['n_features'][1]],
+             net_param_dict['n_features'][1]],
             [configuration_dict['batchsize'],
              int(np.ceil(configuration_dict['image_height'] / (2**2))),
              int(np.ceil(configuration_dict['image_width'] / (2**2))),
-             configuration_dict['n_features'][2]],
+             net_param_dict['n_features'][2]],
             [configuration_dict['batchsize'],
              int(np.ceil(configuration_dict['image_height'] / (2**3))),
              int(np.ceil(configuration_dict['image_width'] / (2**3))),
-             configuration_dict['n_features'][3]],
+             net_param_dict['n_features'][3]],
             [configuration_dict['batchsize'],
              int(np.ceil(configuration_dict['image_height'] / (2**4))),
              int(np.ceil(configuration_dict['image_width'] / (2**4))),
-             configuration_dict['n_features'][4]],
+             net_param_dict['n_features'][4]],
             [configuration_dict['batchsize'],
              int(np.ceil(configuration_dict['image_height'] / (2**5))),
              int(np.ceil(configuration_dict['image_width'] / (2**5))),
-             configuration_dict['n_features'][5]]
+             net_param_dict['n_features'][5]]
         ]
 
         return net_param_dict
@@ -243,211 +243,210 @@ def constructor(name,
 
     return NetworkClass(name, net_parameters, is_training, keep_prob)
 
-    class NetworkClass(bb.ComposedModule):
-        def define_inner_modules(self, name, net_param_dict,
-                                 is_training, keep_prob):
+class NetworkClass(bb.ComposedModule):
+    def define_inner_modules(self, name, net_param_dict,
+                             is_training, keep_prob):
 
-            # create default input parameters for network if none given
-            # -----
+        # create default input parameters for network if none given
+        # -----
 
-            if not(net_param_dict):
-                self.net_params = get_net_parameters(net_param_dict)
+        if not(net_param_dict):
+            self.net_params = get_net_parameters(net_param_dict)
+        else:
+            self.net_params = net_param_dict
+
+        # create input/output modules of the network
+        # -----
+
+        self.layers = {}
+
+        with tf.name_scope('flatpool_0'):
+            self.layers['flatpool0'] = bb.FlattenModule('flatpool0')
+
+        with tf.name_scope('global_average_pooling'):
+            self.layers['gap'] = bb.GlobalAveragePoolingModule('gap')
+
+        with tf.name_scope('fully_connected_layer_0'):
+            if self.net_params['batchnorm']:
+                self.layers['fc0'] = \
+                    bb.FullyConnectedLayerWithBatchNormalizationModule(
+                    'fc0',
+                    self.net_params['bias_shapes'][-1][-1],
+                    is_training,
+                    0.0,
+                    1.0,
+                    0.5,
+                    self.net_params['activations'][-1],
+                    # input_shape
+                    int(np.prod(np.ceil(np.array(
+                        self.net_params['bias_shapes'][-2]) /
+                        np.array(self.net_params['pool_strides'][-2])
+                                        )
+                                )
+                        ),
+                    # output_shape
+                    np.prod(
+                        self.net_params['bias_shapes'][-1])
+                )
             else:
-                self.net_params = net_param_dicts
+                self.layers['fc0'] = bb.FullyConnectedLayerModule(
+                    'fc0',
+                    self.net_params['activations'][-1],
+                    int(np.prod(np.ceil(np.array(
+                        self.net_params['bias_shapes'][-2]) /
+                        np.array(self.net_params['pool_strides'][-2])))),
+                    np.prod(
+                        self.net_params['bias_shapes'][-1])
+                )
 
-            # create input/output modules of the network
-            # -----
+        # create middle modules of the network
+        # -----
 
-            self.layers = {}
-
-            with tf.name_scope('flatpool_0'):
-                self.layers['flatpool0'] = bb.FlattenModule('flatpool0')
-
-            with tf.name_scope('global_average_pooling'):
-                self.layers['gap'] = bb.GlobalAveragePoolingModule('gap')
-
-            with tf.name_scope('fully_connected_layer_0'):
-                if FLAGS.batchnorm:
-                    self.layers['fc0'] = \
-                        bb.FullyConnectedLayerWithBatchNormalizationModule(
-                        'fc0',
-                        self.net_params['bias_shapes'][-1][-1],
+        # convolutions, lateral, pooling
+        for lnr in range(self.net_params['depth']):
+            with tf.name_scope('convolutional_layer_{}'.format(lnr)):
+                if self.net_params['batchnorm']:
+                    self.layers["conv{}".format(lnr)] = \
+                        bb.TimeConvolutionalLayerWithBatchNormalizationModule(
+                        "conv{}".format(lnr),
+                        self.net_params['bias_shapes'][lnr][-1],
                         is_training,
                         0.0,
                         1.0,
                         0.5,
-                        self.net_params['activations'][-1],
-                        # input_shape
-                        int(np.prod(np.ceil(np.array(
-                            self.net_params['bias_shapes'][-2]) /
-                            np.array(self.net_params['pool_strides'][-2])
-                                            )
-                                    )
-                            ),
-                        # output_shape
-                        np.prod(
-                            self.net_params['bias_shapes'][-1])
+                        self.net_params['activations'][lnr],
+                        self.net_params['conv_filter_shapes'][lnr],
+                        [1, 1, 1, 1],
+                        self.net_params['bias_shapes'][lnr]
                     )
                 else:
-                    self.layers['fc0'] = bb.FullyConnectedLayerModule(
-                        'fc0',
-                        self.net_params['activations'][-1],
-                        int(np.prod(np.ceil(np.array(
-                            self.net_params['bias_shapes'][-2]) /
-                            np.array(self.net_params['pool_strides'][-2])))),
-                        np.prod(
-                            self.net_params['bias_shapes'][-1])
+                    self.layers["conv{}".format(lnr)] = \
+                        bb.TimeConvolutionalLayerModule(
+                        "conv{}".format(lnr),
+                        self.net_params['activations'][lnr],
+                        self.net_params['conv_filter_shapes'][lnr],
+                        [1, 1, 1, 1],
+                        self.net_params['bias_shapes'][lnr]
                     )
 
-            # create middle modules of the network
-            # -----
+            with tf.name_scope('dropout_conv{}'.format(lnr)):
+                self.layers['dropoutc{}'.format(lnr)] = bb.DropoutModule(
+                    'dropoutc{}'.format(lnr), keep_prob=keep_prob)
 
-            # convolutions, lateral, pooling
-            for lnr in range(self.net_params['depth']):
-                with tf.name_scope('convolutional_layer_{}'.format(lnr)):
-                    if self.net_params['batch_normalization']:
-                        self.layers["conv{}".format(lnr)] = \
-                            bb.TimeConvolutionalLayerWithBatchNormalizationModule(
-                            "conv{}".format(lnr),
-                            self.net_params['bias_shapes'][lnr][-1],
-                            is_training,
-                            0.0,
-                            1.0,
-                            0.5,
-                            self.net_params['activations'][lnr],
-                            self.net_params['conv_filter_shapes'][lnr],
-                            [1, 1, 1, 1],
-                            self.net_params['bias_shapes'][lnr]
-                        )
-                    else:
-                        self.layers["conv{}".format(lnr)] = \
-                            bb.TimeConvolutionalLayerModule(
-                            "conv{}".format(lnr),
-                            self.net_params['activations'][lnr],
-                            self.net_params['conv_filter_shapes'][lnr],
-                            [1, 1, 1, 1],
-                            self.net_params['bias_shapes'][lnr]
-                        )
+            with tf.name_scope('lateral_layer_{}'.format(lnr)):
+                lateral_filter_shape = self.net_params['conv_filter_shapes'][lnr]
+                #tmp = lateral_filter_shape[2]
+                lateral_filter_shape[2] = lateral_filter_shape[3]
+                #lateral_filter_shape[3] = tmp
+                self.layers["lateral{}".format(lnr)] = bb.Conv2DModule(
+                    "lateral{}".format(lnr),
+                    lateral_filter_shape,
+                    [1, 1, 1, 1]
+                )
+                self.layers["lateral{}_batchnorm".format(lnr)] = \
+                    bb.BatchNormalizationModule(
+                    "lateral{}_batchnorm".format(lnr),
+                    lateral_filter_shape[-1],
+                    is_training,
+                    beta_init=0.0,
+                    gamma_init=0.1,
+                    ema_decay_rate=0.5,
+                    moment_axes=[0, 1, 2],
+                    variance_epsilon=1e-3
+                )
 
-                with tf.name_scope('dropout_conv{}'.format(lnr)):
-                    self.layers['dropoutc{}'.format(lnr)] = bb.DropoutModule(
-                        'dropoutc{}'.format(lnr), keep_prob=keep_prob)
+            with tf.name_scope('pooling_layer_{}'.format(lnr)):
+                self.layers["pool{}".format(lnr)] = bb.MaxPoolingModule(
+                    "pool{}".format(lnr),
+                    self.net_params['pool_sizes'][lnr],
+                    self.net_params['pool_strides'][lnr]
+                )
 
-                with tf.name_scope('lateral_layer_{}'.format(lnr)):
-                    lateral_filter_shape = self.net_params['conv_filter_shapes'][lnr]
-                    #tmp = lateral_filter_shape[2]
-                    lateral_filter_shape[2] = lateral_filter_shape[3]
-                    #lateral_filter_shape[3] = tmp
-                    self.layers["lateral{}".format(lnr)] = bb.Conv2DModule(
-                        "lateral{}".format(lnr),
-                        lateral_filter_shape,
-                        [1, 1, 1, 1]
-                    )
-                    self.layers["lateral{}_batchnorm".format(lnr)] = \
-                        bb.BatchNormalizationModule(
-                        "lateral{}_batchnorm".format(lnr),
-                        lateral_filter_shape[-1],
-                        is_training,
-                        beta_init=0.0,
-                        gamma_init=0.1,
-                        ema_decay_rate=0.5,
-                        moment_axes=[0, 1, 2],
-                        variance_epsilon=1e-3
-                    )
+        # topdown connections
 
-                with tf.name_scope('pooling_layer_{}'.format(lnr)):
-                    self.layers["pool{}".format(lnr)] = bb.MaxPoolingModule(
-                        "pool{}".format(lnr),
-                        self.net_params['pool_sizes'][lnr],
-                        self.net_params['pool_strides'][lnr]
+        for lnr in range(self.net_params['depth'] - 1):
+            with tf.name_scope('topdown_layer_{}'.format(lnr)):
+                self.layers["topdown{}".format(lnr)] = \
+                    bb.Conv2DTransposeModule(
+                    "topdown{}".format(lnr),
+                    self.net_params['topdown_filter_shapes'][lnr],
+                    [1, 2, 2, 1],
+                    self.net_params['topdown_output_shapes'][lnr]
+                )
+                self.layers["topdown{}_batchnorm".format(lnr)] = \
+                    bb.BatchNormalizationModule("topdown{}_batchnorm".format(lnr),
+                    self.net_params[
+                     'topdown_output_shapes'][lnr][-1],
+                    is_training,
+                    beta_init=0.0,
+                    gamma_init=0.1,
+                    ema_decay_rate=0.5,
+                    moment_axes=[0, 1, 2],
+                    variance_epsilon=1e-3
                     )
 
-            # topdown connections
+        # longrange topdown connections
+        for i in range(1, self.net_params['depth']):
+            for lnr in range(self.net_params['depth'] - i):
+                # TODO: implement long range connections
+                pass
+
+        # connect all modules of the network in a meaningful way
+        # -----
+        with tf.name_scope('input_output'):
+            self.input_module = self.layers["conv0"]
+            self.output_module = self.layers["fc0"]
+
+        with tf.name_scope('wiring_of_modules'):
+            #self.layers["gap"].add_input(self.layers["dropoutc{}".format(
+            #    self.net_params['depth']-1)
+            #])  # TODO: is this correct?
+
+            self.layers["flatpool0"].add_input(
+                self.layers["dropoutc{}".format(self.net_params['depth'] - 1)])
+            self.layers["fc0"].add_input(self.layers["flatpool0"])
 
             for lnr in range(self.net_params['depth'] - 1):
-                with tf.name_scope('topdown_layer_{}'.format(lnr)):
-                    self.layers["topdown{}".format(lnr)] = \
-                        bb.Conv2DTransposeModule(
-                        "topdown{}".format(lnr),
-                        self.net_params['topdown_filter_shapes'][lnr],
-                        [1, 2, 2, 1],
-                        self.net_params['topdown_output_shapes'][lnr]
-                    )
-                    self.layers["topdown{}_batchnorm".format(lnr)] = \
-                        bb.BatchNormalizationModule("topdown{}_batchnorm".format(lnr),
-                        self.net_params[
-                         'topdown_output_shapes'][lnr][-1],
-                        is_training,
-                        beta_init=0.0,
-                        gamma_init=0.1,
-                        ema_decay_rate=0.5,
-                        moment_axes=[0, 1, 2],
-                        variance_epsilon=1e-3
-                        )
+                # convolutional layers
+                self.layers["conv{}".format(
+                    (lnr + 1))].add_input(self.layers["dropoutc{}".format(lnr)], 0)
 
-            # longrange topdown connections
-            for i in range(range(1, self.net_params['depth'])):
-                for lnr in range(self.net_params['depth'] - i):
-                    pass
+            for lnr in range(self.net_params['depth']):
+                # pooling layers
+                self.layers["pool{}".format(lnr)].add_input(
+                    self.layers["conv{}".format(lnr)])
+                self.layers["dropoutc{}".format((lnr))].add_input(
+                    self.layers["pool{}".format(lnr)])
+                if "L" in self.net_params["connectivity"]:
+                    # lateral layers
+                    if self.net_params["batchnorm"]:
+                        self.layers["lateral{}".format(lnr)].add_input(
+                            self.layers["conv{}".format(lnr)])
+                        self.layers["lateral{}_batchnorm".format(lnr)].add_input(
+                            self.layers["lateral{}".format(lnr)])
+                        self.layers["conv{}".format(lnr)].preactivation.add_input(
+                            self.layers["lateral{}_batchnorm".format(lnr)], -1)
+                    else:
+                        self.layers["lateral{}".format(lnr)].add_input(
+                            self.layers["conv{}".format(lnr)])
+                        self.layers["conv{}".format(lnr)].preactivation.add_input(
+                            self.layers["lateral{}".format(lnr)], -1)
 
-            # connect all modules of the network in a meaningful way
-            # -----
-            with tf.name_scope('input_output'):
-                self.input_module = self.layers["convolutional_layer_0"]
-                self.output_module = self.layers["fc0"]
-
-            with tf.name_scope('wiring_of_modules'):
-                self.layers["conv0"].add_input(self.layers["inp_norm"], 0)
-
-                self.layers["gap"].add_input(self.layers["dropoutc{}".format(
-                    self.net_params['depth']-1)
-                ])  # TODO: is this correct?
-
-                # self.layers["flatpool0"].add_input(
-                #     self.layers["dropoutc{}".format(self.net_params['depth'] - 1)])
-                self.layers["fc0"].add_input(self.layers["gap"])
-
-                for lnr in range(self.net_params['depth'] - 1):
-                    # convolutional layers
-                    self.layers["conv{}".format(
-                        (lnr + 1))].add_input(self.layers["dropoutc{}".format(lnr)], 0)
-
-                for lnr in range(self.net_params['depth']):
-                    # pooling layers
-                    self.layers["pool{}".format(lnr)].add_input(
-                        self.layers["conv{}".format(lnr)])
-                    self.layers["dropoutc{}".format((lnr))].add_input(
-                        self.layers["pool{}".format(lnr)])
-                    if "L" in self.net_params["architecture"]:
-                        # lateral layers
-                        if self.net_params["batch_normalization"]:
-                            self.layers["lateral{}".format(lnr)].add_input(
-                                self.layers["conv{}".format(lnr)])
-                            self.layers["lateral{}_batchnorm".format(lnr)].add_input(
-                                self.layers["lateral{}".format(lnr)])
-                            self.layers["conv{}".format(lnr)].preactivation.add_input(
-                                self.layers["lateral{}_batchnorm".format(lnr)], -1)
-                        else:
-                            self.layers["lateral{}".format(lnr)].add_input(
-                                self.layers["conv{}".format(lnr)])
-                            self.layers["conv{}".format(lnr)].preactivation.add_input(
-                                self.layers["lateral{}".format(lnr)], -1)
-
-                for lnr in range(self.net_params['depth'] - 1):
-                    # topdown layers
-                    if "T" in self.net_params["architecture"]:
-                        if self.net_params["batch_normalization"]:
-                            self.layers["topdown{}_batchnorm".format(lnr)].add_input(
-                                self.layers["topdown{}".format(lnr)])
-                            self.layers["conv{}".format(lnr)].preactivation.add_input(
-                                self.layers["topdown{}_batchnorm".format(lnr)], -1)
-                            self.layers["topdown{}".format(lnr)].add_input(
-                                self.layers["conv{}".format((lnr + 1))])
-                        else:
-                            self.layers["conv{}".format(lnr)].preactivation.add_input(
-                                self.layers["topdown{}".format(lnr)], -1)
-                            self.layers["topdown{}".format(lnr)].add_input(
-                                self.layers["conv{}".format((lnr + 1))])
+            for lnr in range(self.net_params['depth'] - 1):
+                # topdown layers
+                if "T" in self.net_params["connectivity"]:
+                    if self.net_params["batchnorm"]:
+                        self.layers["topdown{}_batchnorm".format(lnr)].add_input(
+                            self.layers["topdown{}".format(lnr)])
+                        self.layers["conv{}".format(lnr)].preactivation.add_input(
+                            self.layers["topdown{}_batchnorm".format(lnr)], -1)
+                        self.layers["topdown{}".format(lnr)].add_input(
+                            self.layers["conv{}".format((lnr + 1))])
+                    else:
+                        self.layers["conv{}".format(lnr)].preactivation.add_input(
+                            self.layers["topdown{}".format(lnr)], -1)
+                        self.layers["topdown{}".format(lnr)].add_input(
+                            self.layers["conv{}".format((lnr + 1))])
 
     def get_all_weights(self):
         weights = []
@@ -484,9 +483,6 @@ def constructor(name,
                     elif ('fc' in lyr):
                         biases.append(self.layers[lyr].bias.bias)
         return biases
-
-    return NetworkClass(name, is_training, keep_prob, net_params)
-
 
 
 
