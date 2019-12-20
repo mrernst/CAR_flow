@@ -403,7 +403,7 @@ dataset = dataset.map(PARSER)
 
 
 if FLAGS.testrun:
-    dataset = dataset.take(300)  # take smaller dataset for testing
+    dataset = dataset.take(100)  # take smaller dataset for testing
 
 dataset = dataset.shuffle(CONFIG['buffer_size'])  # bad for evaluation?
 dataset = dataset.batch(CONFIG['batchsize'], drop_remainder=True)
