@@ -556,6 +556,24 @@ class Conv2DModule(VariableModule):
 
 # TODO: weight initializer with xavier glorot init
 
+class DepthwiseConv2DModule(VariableModule):
+    """
+    DepthwiseConv2DModule inherits from Conv2DModule. It takes a single input module
+    and performs a depthwise convolution.
+    """
+
+    def operation(self, x):
+        """
+        operation takes a Conv2DModule and x, a 4D tensor and performs a
+        convolution of the input module in the current time slice
+
+        Args:
+          x:                    4D tensor [B,H,W,C]
+        Returns:
+          ?:                    4D tensor [B,H,W,C]
+        """
+        return tf.nn.depthwise_conv2d(x, self.weights, strides=self.strides,
+                            padding=self.padding, name=self.name)
 
 class Conv2DTransposeModule(VariableModule):
     """
