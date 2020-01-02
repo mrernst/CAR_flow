@@ -57,6 +57,7 @@ import argparse
 # -----
 from config import get_par, get_aux
 
+
 def mkdir_p(path):
     """
     mkdir_p takes a string path and creates a directory at this path if it
@@ -73,6 +74,7 @@ def mkdir_p(path):
 # commandline arguments
 # -----
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument(
      "-tbp",
@@ -81,6 +83,7 @@ parser.add_argument(
      default=6006,
      help='port for tensorboard monitoring')
 args = parser.parse_args()
+
 
 class SbatchDocument(object):
     """docstring for SbatchDocument."""
