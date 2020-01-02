@@ -73,6 +73,11 @@ import utilities.networks.buildingblocks as bb
 import utilities.networks.preprocessor as preprocessor
 import utilities.afterburner as afterburner
 
+# cross-platform development
+from platform import system
+IS_MACOSX = True if system() == 'Darwin' else False
+PWD_STEM = "/Users/markus/Research/Code/" if IS_MACOSX else "/home/mernst/git/"
+
 # commandline arguments
 # -----
 
@@ -81,7 +86,7 @@ import utilities.afterburner as afterburner
 
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', '/home/mernst/git/'+  #'/Users/markus/Research/Code/' + #'/home/mernst/git/'+
+tf.app.flags.DEFINE_string('config_file', PWD_STEM +  #'/Users/markus/Research/Code/' + #'/home/mernst/git/'+
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
