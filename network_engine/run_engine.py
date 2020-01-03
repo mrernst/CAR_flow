@@ -82,6 +82,12 @@ parser.add_argument(
      type=int,
      default=6006,
      help='port for tensorboard monitoring')
+parser.add_argument(
+     "-n-gpu",
+     "--number_of_gpus",
+     type=int,
+     default=1,
+     help='activate gpu acceleration')
 args = parser.parse_args()
 
 
@@ -101,7 +107,7 @@ class SbatchDocument(object):
         gen_sbatch takes a parameter dict and a auxiliary_parameters dict and
         generates a sbatch file for the corresponding experiment
         """
-        number_of_gpus = 1
+        number_of_nodes = 1
 
         bash_array = '('
         for p in paths_to_config_files:
@@ -119,15 +125,18 @@ class SbatchDocument(object):
             "#SBATCH --time=700:00:00 \n" + \
             "#SBATCH --mem=20GB \n" + \
             "#SBATCH --reservation triesch-shared \n" + \
-            "#SBATCH --gres=gpu:1 \n" + \
             "#SBATCH --partition=sleuths \n" + \
             "#SBATCH --job-name={} \n".format(self.experiment_name) + \
             "#SBATCH --mail-type=END \n" + \
             "#SBATCH --mail-user=mernst@fias.uni-frankfurt.de \n" + \
             "#SBATCH --output={}slurm_output/{}_slurm_%j.out \n".format(
                 self.files_dir, self.experiment_name) + \
-            "#SBATCH --array=0-{}%{} \n\n".format(len(paths_to_config_files)-1,
-                                                  number_of_gpus)
+            "#SBATCH --array=0-{}%{} \n".format(len(paths_to_config_files)-1,
+                                                number_of_nodes)
+        if args.number_of_gpus > 0:
+            header += "#SBATCH --gres=gpu:{} \n\n".format(args.number_of_gpus)
+        else:
+            header += "\n"
 
         middle = \
             'config_array={} \n'.format(bash_array) + \
