@@ -53,6 +53,44 @@ import utilities.networks.buildingblocks as bb
 
 
 # custom variants of the recurrent modules
+
+class MultBiasModule(bb.VariableModule):
+    """
+    MultBiasModule inherits from VariableModule. It holds on to a bias
+    variable, that can be added to another tensor.
+    The difference to bb.BiasModule is that biases are initialized as a
+    tensor of ones. Eventual input modules to MultBiasModule are disregarded.
+    """
+
+    def __init__(self, name, bias_shape):
+        """
+        Creates a BiasModule Object
+
+        Args:
+          name:                 string, name of the module
+          bias_shape:           array, shape of the bias, i.e. [B,H,W,C]
+        """
+        self.bias_shape = bias_shape
+        super().__init__(name, bias_shape)
+
+    def operation(self, *args):
+        """
+        operation takes a BiasModule and returns the tensorflow variable which
+        holds the variable created by create_variables
+        """
+        return self.bias
+
+    def create_variables(self, name):
+        """
+        create_variables takes a BiasModule and a name and instantiates a
+        tensorflow variable with the shape specified in the constructor.
+        It returns nothing.
+
+        @param name str, name can be accessed from self
+        """
+        self.bias = tf.Variable(tf.ones(shape=self.bias_shape), name=name)
+
+
 class TimeConvolutionalLayerModule(bb.TimeComposedModule):
     """
     TimeConvolutionalLayerModule inherits from TimeComposedModule. This
@@ -68,18 +106,20 @@ class TimeConvolutionalLayerModule(bb.TimeComposedModule):
         self.input_module = bb.TimeAddModule(name + "_input")
         self.conv = bb.Conv2DModule(name + "_conv", filter_shape, strides,
                                     w_init_m, w_init_std, padding=padding)
-        self.bias = bb.BiasModule(name + "_bias", bias_shape)
+        self.adder = bb.AddModule(
+            name + "_add_bias")
+        self.bias = MultBiasModule(name + "_bias", bias_shape)
         self.preactivation = bb.TimeMultModule(name + "_preactivation")
-        self.preactivation_plus = bb.AddModule(
-            name + "_preactivation_plus")
+
         self.output_module = bb.ActivationModule(name + "_output", activation)
 
         # wiring of modules
         self.conv.add_input(self.input_module)
-        self.preactivation.add_input(self.conv, 0)
-        self.preactivation_plus.add_input(self.preactivation)
-        self.preactivation_plus.add_input(self.bias)
-        self.output_module.add_input(self.preactivation_plus)
+        self.adder.add_input(self.conv)
+        self.adder.add_input(self.bias)
+
+        self.preactivation.add_input(self.adder, 0)
+        self.output_module.add_input(self.preactivation)
 
 
 class TimeConvolutionalLayerWithBatchNormalizationModule(
@@ -99,7 +139,6 @@ class TimeConvolutionalLayerWithBatchNormalizationModule(
         self.input_module = bb.TimeAddModule(name + "_input")
         self.conv = bb.Conv2DModule(name + "_conv", filter_shape, strides,
                                     w_init_m, w_init_std, padding=padding)
-        # self.bias = BiasModule(name + "_bias", bias_shape)
         self.preactivation = bb.TimeMultModule(name + "_preactivation")
         self.batchnorm = bb.BatchNormalizationModule(name + "_batchnorm",
                                                      n_out,
@@ -112,13 +151,11 @@ class TimeConvolutionalLayerWithBatchNormalizationModule(
 
         # wiring of modules
         self.conv.add_input(self.input_module)
-        self.preactivation.add_input(self.conv, 0)
-        # self.preactivation.add_input(self.bias)
-        self.batchnorm.add_input(self.preactivation)
-        self.output_module.add_input(self.batchnorm)
+        self.batchnorm.add_input(self.conv)
+        self.preactivation.add_input(self.batchnorm, 0)
+        self.output_module.add_input(self.preactivation)
 
 
-# TODO: Write description for this function
 def constructor(name,
                 configuration_dict,
                 is_training,
@@ -197,7 +234,7 @@ class NetworkClass(bb.ComposedModule):
                 self.layers["conv0"] = \
                     TimeConvolutionalLayerWithBatchNormalizationModule(
                         "conv0", self.net_params['bias_shapes'][0][-1],
-                        is_training, 0.0, 1.0, 0.5,
+                        is_training, 1.0, 1.0, 0.5,
                         self.net_params['activations'][0],
                         self.net_params['conv_filter_shapes'][0],
                         [1, 1, 1, 1], self.net_params['bias_shapes'][0],
@@ -224,9 +261,14 @@ class NetworkClass(bb.ComposedModule):
                 self.layers["lateral0_batchnorm"] = \
                     bb.BatchNormalizationModule(
                     "lateral0_batchnorm", lateral_filter_shape[-1],
-                    is_training, beta_init=0.0, gamma_init=0.1,
+                    is_training, beta_init=1.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
+                self.layers["lateral0_adder"] = bb.AddModule(
+                    name + "lateral0_add_bias")
+                self.layers["lateral0_multbias"] = \
+                    MultBiasModule(name + "_bias",
+                                   self.net_params['bias_shapes'][0])
 
         with tf.name_scope('pooling_layer_0'):
             self.layers["pool0"] = bb.MaxPoolingModule(
@@ -242,7 +284,7 @@ class NetworkClass(bb.ComposedModule):
                 self.layers["conv1"] = \
                     TimeConvolutionalLayerWithBatchNormalizationModule(
                         "conv1", self.net_params['bias_shapes'][1][-1],
-                        is_training, 0.0, 1.0, 0.5,
+                        is_training, 1.0, 1.0, 0.5,
                         self.net_params['activations'][1],
                         self.net_params['conv_filter_shapes'][1],
                         [1, 1, 1, 1], self.net_params['bias_shapes'][1],
@@ -270,6 +312,11 @@ class NetworkClass(bb.ComposedModule):
                     is_training, beta_init=0.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
+                self.layers["topdown0_adder"] = bb.AddModule(
+                    name + "topdown0_add_bias")
+                self.layers["topdown0_multbias"] = \
+                    MultBiasModule(name + "_bias",
+                                   self.net_params['bias_shapes'][0])
 
         if 'L' in self.net_params['connectivity']:
             with tf.name_scope('lateral_layer_1'):
@@ -283,9 +330,14 @@ class NetworkClass(bb.ComposedModule):
                 self.layers["lateral1_batchnorm"] = \
                     bb.BatchNormalizationModule(
                     "lateral1_batchnorm", lateral_filter_shape[-1],
-                    is_training, beta_init=0.0, gamma_init=0.1,
+                    is_training, beta_init=1.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
+                self.layers["lateral1_adder"] = bb.AddModule(
+                    name + "lateral1_add_bias")
+                self.layers["lateral1_multbias"] = \
+                    MultBiasModule(name + "_bias",
+                                   self.net_params['bias_shapes'][1])
 
         with tf.name_scope('pooling_layer_1'):
             self.layers["pool1"] = bb.MaxPoolingModule(
@@ -349,12 +401,21 @@ class NetworkClass(bb.ComposedModule):
                 else:
                     self.layers["lateral0"].add_input(
                         self.layers["conv0"])
+                    self.layers["lateral0_adder"].add_input(
+                        self.layers["lateral0"])
+                    self.layers["lateral0_adder"].add_input(
+                        self.layers["lateral0_multbias"])
                     self.layers["conv0"].preactivation.add_input(
-                        self.layers["lateral0"], -1)
+                        self.layers["lateral0_adder"], -1)
                     self.layers["lateral1"].add_input(
                         self.layers["conv1"])
+                    self.layers["lateral1_adder"].add_input(
+                        self.layers["lateral1"])
+                    self.layers["lateral1_adder"].add_input(
+                        self.layers["lateral1_multbias"])
                     self.layers["conv1"].preactivation.add_input(
-                        self.layers["lateral1"], -1)
+                        self.layers["lateral1_adder"], -1)
+
             if "T" in self.net_params['connectivity']:
                 if self.net_params['batchnorm']:
                     self.layers["topdown0_batchnorm"].add_input(
@@ -364,10 +425,15 @@ class NetworkClass(bb.ComposedModule):
                     self.layers["topdown0"].add_input(
                         self.layers["conv1"])
                 else:
-                    self.layers["conv0"].preactivation.add_input(
-                        self.layers["topdown0"], -1)
                     self.layers["topdown0"].add_input(
                         self.layers["conv1"])
+                    self.layers["topdown0_adder"].add_input(
+                        self.layers["topdown0"])
+                    self.layers["topdown0_adder"].add_input(
+                        self.layers["topdown0_multbias"])
+                    self.layers["conv0"].preactivation.add_input(
+                        self.layers["topdown0_adder"], -1)
+
         with tf.name_scope('input_output'):
             self.input_module = self.layers["conv0"]
             self.output_module = self.layers["fc0"]
