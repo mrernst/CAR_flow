@@ -325,7 +325,8 @@ class AddModule(OperationModule):
 class TimeMultModule(TimeOperationModule):
     """
     TimeMultModule inherits from TimeOperationModule. It can have as many
-    inputs as required and sums their outputs. It does support recursions.
+    inputs as required and multiplies their outputs.
+    It does support recursions.
     """
 
     def operation(self, *args):
@@ -347,7 +348,7 @@ class TimeMultModule(TimeOperationModule):
 class MultModule(OperationModule):
     """
     MultModule inherits from OperationModule. It can have as many inputs as
-    required and sums their outputs. It does not support recursions.
+    required and multiplies up their outputs. It does not support recursions.
     """
     def operation(self, *args):
         """
