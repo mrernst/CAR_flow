@@ -80,6 +80,7 @@ def lrn_relu(x, name=None, depth_radius=5, bias=1, alpha=1e-4, beta=0.5):
                      alpha=1e-4, beta=0.5, name=name)
 
 
+
 # ----------
 # foundation
 # ----------
@@ -525,8 +526,9 @@ class Conv2DModule(VariableModule):
         """
         self.filter_shape = filter_shape
         self.init_mean = init_mean if init_mean is not None else 0.0
+        # initialize sqrt(2/n_in), for truncated sqrt(4/n_in)
         self.init_std = init_std if init_std is not None else \
-            (2 / np.prod(self.filter_shape))
+            np.sqrt(2.0 / np.prod(self.filter_shape[:-1]))
         super().__init__(name, filter_shape, strides, padding)
         self.strides = strides
         self.padding = padding
@@ -557,10 +559,11 @@ class Conv2DModule(VariableModule):
 
 # TODO: weight initializer with xavier glorot init
 
-class DepthwiseConv2DModule(VariableModule):
+
+class DepthwiseConv2DModule(Conv2DModule):
     """
-    DepthwiseConv2DModule inherits from Conv2DModule. It takes a single input module
-    and performs a depthwise convolution.
+    DepthwiseConv2DModule inherits from Conv2DModule. It takes a single
+    input module and performs a depthwise convolution.
     """
 
     def operation(self, x):
@@ -574,7 +577,8 @@ class DepthwiseConv2DModule(VariableModule):
           ?:                    4D tensor [B,H,W,C]
         """
         return tf.nn.depthwise_conv2d(x, self.weights, strides=self.strides,
-                            padding=self.padding, name=self.name)
+                                      padding=self.padding, name=self.name)
+
 
 class Conv2DTransposeModule(VariableModule):
     """
@@ -589,6 +593,7 @@ class Conv2DTransposeModule(VariableModule):
         Args:
           name:               string, name of the module
           filter_shape:       array, defines the shape of the filter
+                              [height, width, output_channels, in_channels]
           output_shape:       array, output shape of the deconvolution op
           strides:            list of ints length 4, stride of the sliding
                               window for each dimension of input
@@ -602,12 +607,15 @@ class Conv2DTransposeModule(VariableModule):
 
         self.filter_shape = filter_shape
         self.init_mean = init_mean if init_mean is not None else 0.0
-        self.init_std = init_std if init_std is not None else 0.1
+        # initialize sqrt(2/n_in), for truncated sqrt(4/n_in)
+        self.init_std = init_std if init_std is not None else \
+            np.sqrt(2.0 / np.prod(
+                np.concatenate(
+                    [self.filter_shape[:-2], self.filter_shape[-1:]])))
         super().__init__(name, filter_shape, strides, output_shape, padding)
         self.strides = strides
         self.output_shape = output_shape
         self.padding = padding
-
 
     def operation(self, x):
         """
@@ -770,7 +778,8 @@ class FullyConnectedModule(VariableModule):
         self.in_size = in_size
         self.out_size = out_size
         self.init_mean = init_mean if init_mean is not None else 0.0
-        self.init_std = init_std if init_std is not None else 0.1
+        self.init_std = init_std if init_std is not None else \
+            np.sqrt(2.0 / (self.in_size + self.out_size))
         super().__init__(name, in_size, out_size)
 
     def operation(self, x):
