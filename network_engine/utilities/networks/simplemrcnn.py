@@ -264,9 +264,9 @@ class NetworkClass(bb.ComposedModule):
                     is_training, beta_init=1.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
-                self.layers["lateral0_adder"] = bb.AddModule(
+                self.layers["l0_adder"] = bb.AddModule(
                     name + "lateral0_add_bias")
-                self.layers["lateral0_multbias"] = \
+                self.layers["l0_multbias"] = \
                     MultBiasModule(name + "_bias",
                                    self.net_params['bias_shapes'][0])
 
@@ -312,9 +312,9 @@ class NetworkClass(bb.ComposedModule):
                     is_training, beta_init=0.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
-                self.layers["topdown0_adder"] = bb.AddModule(
+                self.layers["t0_adder"] = bb.AddModule(
                     name + "topdown0_add_bias")
-                self.layers["topdown0_multbias"] = \
+                self.layers["t0_multbias"] = \
                     MultBiasModule(name + "_bias",
                                    self.net_params['bias_shapes'][0])
 
@@ -333,9 +333,9 @@ class NetworkClass(bb.ComposedModule):
                     is_training, beta_init=1.0, gamma_init=0.1,
                     ema_decay_rate=0.5, moment_axes=[0, 1, 2],
                     variance_epsilon=1e-3)
-                self.layers["lateral1_adder"] = bb.AddModule(
+                self.layers["l1_adder"] = bb.AddModule(
                     name + "lateral1_add_bias")
-                self.layers["lateral1_multbias"] = \
+                self.layers["l1_multbias"] = \
                     MultBiasModule(name + "_bias",
                                    self.net_params['bias_shapes'][1])
 
@@ -401,20 +401,20 @@ class NetworkClass(bb.ComposedModule):
                 else:
                     self.layers["lateral0"].add_input(
                         self.layers["conv0"])
-                    self.layers["lateral0_adder"].add_input(
+                    self.layers["l0_adder"].add_input(
                         self.layers["lateral0"])
-                    self.layers["lateral0_adder"].add_input(
-                        self.layers["lateral0_multbias"])
+                    self.layers["l0_adder"].add_input(
+                        self.layers["l0_multbias"])
                     self.layers["conv0"].preactivation.add_input(
-                        self.layers["lateral0_adder"], -1)
+                        self.layers["l0_adder"], -1)
                     self.layers["lateral1"].add_input(
                         self.layers["conv1"])
-                    self.layers["lateral1_adder"].add_input(
+                    self.layers["l1_adder"].add_input(
                         self.layers["lateral1"])
-                    self.layers["lateral1_adder"].add_input(
-                        self.layers["lateral1_multbias"])
+                    self.layers["l1_adder"].add_input(
+                        self.layers["l1_multbias"])
                     self.layers["conv1"].preactivation.add_input(
-                        self.layers["lateral1_adder"], -1)
+                        self.layers["l1_adder"], -1)
 
             if "T" in self.net_params['connectivity']:
                 if self.net_params['batchnorm']:
@@ -427,12 +427,12 @@ class NetworkClass(bb.ComposedModule):
                 else:
                     self.layers["topdown0"].add_input(
                         self.layers["conv1"])
-                    self.layers["topdown0_adder"].add_input(
+                    self.layers["t0_adder"].add_input(
                         self.layers["topdown0"])
-                    self.layers["topdown0_adder"].add_input(
-                        self.layers["topdown0_multbias"])
+                    self.layers["t0_adder"].add_input(
+                        self.layers["t0_multbias"])
                     self.layers["conv0"].preactivation.add_input(
-                        self.layers["topdown0_adder"], -1)
+                        self.layers["t0_adder"], -1)
 
         with tf.name_scope('input_output'):
             self.input_module = self.layers["conv0"]
