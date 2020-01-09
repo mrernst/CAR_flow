@@ -185,28 +185,25 @@ class EmbeddingObject(object):
         # TODO: how to do timesteps here without having accuracy?
 
         for time in accuracy.outputs:
+            embedding_tensor = tf.reshape(network.layers["dropoutc{}".format(
+                network_depth - 1)].outputs[time],
+                (batchsize, -1))
+
             self.total[time] = tf.Variable(
-                tf.zeros(shape=[0, int(np.prod(np.array(
-                    network.net_params['bias_shapes'][network_depth - 1]) /
-                    np.array(
-                    network.net_params['pool_strides'][network_depth - 1])))],
-                    dtype=tf.float32), validate_shape=False,
+                tf.zeros(shape=[0, tf.shape(embedding_tensor)[-1]],
+                         dtype=tf.float32), validate_shape=False,
                 name="preclass_{}".format(time), trainable=False)
 
             update_embedding_preclass[time] = tf.compat.v1.assign(
                 self.total[time],
                 tf.concat([self.total[time],
-                           tf.reshape(network.layers["dropoutc{}".format(
-                               network_depth - 1)].outputs[time],
-                    (batchsize, -1))], axis=0),
+                           embedding_tensor], axis=0),
                 validate_shape=False)
 
             reset_embedding_preclass[time] = tf.compat.v1.assign(
                 self.total[time],
-                tf.zeros(shape=[0, int(np.prod(np.array(
-                    network.net_params['bias_shapes'][1]) /
-                    np.array(network.net_params['pool_strides'][1])))],
-                    dtype=tf.float32), validate_shape=False)
+                tf.zeros(shape=[0, tf.shape(embedding_tensor)[-1]],
+                         dtype=tf.float32), validate_shape=False)
 
         self.update = tf.group(tf.stack(
             (list(update_embedding_preclass.values()))),
