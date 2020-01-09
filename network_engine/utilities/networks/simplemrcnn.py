@@ -52,6 +52,14 @@ import numpy as np
 import utilities.networks.buildingblocks as bb
 
 
+def return_network_layers(connectivity):
+    """
+    return_network_layers takes a string, that describes the connectivity
+    of the network i.e. "BLT", and returns the number of layers the
+    network has.
+    """
+    return 2
+
 # custom variants of the recurrent modules
 
 class MultBiasModule(bb.VariableModule):

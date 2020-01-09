@@ -188,7 +188,6 @@ class EmbeddingObject(object):
             embedding_tensor = tf.reshape(network.layers["dropoutc{}".format(
                 network_depth - 1)].outputs[time],
                 (batchsize, -1))
-
             self.total[time] = tf.Variable(
                 tf.zeros(shape=[0, tf.shape(embedding_tensor)[-1]],
                          dtype=tf.float32), validate_shape=False,

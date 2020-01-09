@@ -66,6 +66,17 @@ import utilities.networks.buildingblocks as bb
 # Additional mode: BD (deeper network)
 
 
+def return_network_layers(connectivity):
+    """
+    return_network_layers takes a string, that describes the connectivity
+    of the network i.e. "BLT", and returns the number of layers the
+    network has.
+    """
+    if "D" in connectivity:
+        return (7-1)*2+1
+    else:
+        return 7
+
 # TODO: Write description for this function
 def constructor(name,
                 configuration_dict,
@@ -293,9 +304,6 @@ def constructor(name,
                 [1, 2, 2, 1],
             ]
 
-            net_param_dict["depth"] = (net_param_dict["depth"]-1)*2+1
-            print(net_param_dict)
-
         return net_param_dict
 
     if custom_net_parameters:
@@ -403,28 +411,29 @@ class NetworkClass(bb.ComposedModule):
                 self.layers['dropoutc{}'.format(lnr)] = bb.DropoutModule(
                     'dropoutc{}'.format(lnr), keep_prob=keep_prob)
 
-            with tf.name_scope('lateral_layer_{}'.format(lnr)):
-                lateral_filter_shape = \
-                    self.net_params['conv_filter_shapes'][lnr]
-                # tmp = lateral_filter_shape[2]
-                lateral_filter_shape[2] = lateral_filter_shape[3]
-                # lateral_filter_shape[3] = tmp
-                self.layers["lateral{}".format(lnr)] = bb.Conv2DModule(
-                    "lateral{}".format(lnr),
-                    lateral_filter_shape,
-                    [1, 1, 1, 1]
-                )
-                self.layers["lateral{}_batchnorm".format(lnr)] = \
-                    bb.BatchNormalizationModule(
-                    "lateral{}_batchnorm".format(lnr),
-                    lateral_filter_shape[-1],
-                    is_training,
-                    beta_init=0.0,
-                    gamma_init=0.1,
-                    ema_decay_rate=0.5,
-                    moment_axes=[0, 1, 2],
-                    variance_epsilon=1e-3
-                )
+            if 'L' in self.net_params['connectivity']:
+                with tf.name_scope('lateral_layer_{}'.format(lnr)):
+                    lateral_filter_shape = \
+                        self.net_params['conv_filter_shapes'][lnr]
+                    # tmp = lateral_filter_shape[2]
+                    lateral_filter_shape[2] = lateral_filter_shape[3]
+                    # lateral_filter_shape[3] = tmp
+                    self.layers["lateral{}".format(lnr)] = bb.Conv2DModule(
+                        "lateral{}".format(lnr),
+                        lateral_filter_shape,
+                        [1, 1, 1, 1]
+                    )
+                    self.layers["lateral{}_batchnorm".format(lnr)] = \
+                        bb.BatchNormalizationModule(
+                        "lateral{}_batchnorm".format(lnr),
+                        lateral_filter_shape[-1],
+                        is_training,
+                        beta_init=0.0,
+                        gamma_init=0.1,
+                        ema_decay_rate=0.5,
+                        moment_axes=[0, 1, 2],
+                        variance_epsilon=1e-3
+                    )
 
             with tf.name_scope('pooling_layer_{}'.format(lnr)):
                 self.layers["pool{}".format(lnr)] = bb.MaxPoolingModule(
@@ -434,28 +443,28 @@ class NetworkClass(bb.ComposedModule):
                 )
 
         # topdown connections
-
-        for lnr in range(self.net_params['depth'] - 1):
-            with tf.name_scope('topdown_layer_{}'.format(lnr)):
-                self.layers["topdown{}".format(lnr)] = \
-                    bb.Conv2DTransposeModule(
-                    "topdown{}".format(lnr),
-                    self.net_params['topdown_filter_shapes'][lnr],
-                    [1, 2, 2, 1],
-                    self.net_params['topdown_output_shapes'][lnr]
-                )
-                self.layers["topdown{}_batchnorm".format(lnr)] = \
-                    bb.BatchNormalizationModule(
-                        "topdown{}_batchnorm".format(lnr),
-                    self.net_params[
-                        'topdown_output_shapes'][lnr][-1],
-                    is_training,
-                    beta_init=0.0,
-                    gamma_init=0.1,
-                    ema_decay_rate=0.5,
-                    moment_axes=[0, 1, 2],
-                    variance_epsilon=1e-3
+        if 'T' in self.net_params['connectivity']:
+            for lnr in range(self.net_params['depth'] - 1):
+                with tf.name_scope('topdown_layer_{}'.format(lnr)):
+                    self.layers["topdown{}".format(lnr)] = \
+                        bb.Conv2DTransposeModule(
+                        "topdown{}".format(lnr),
+                        self.net_params['topdown_filter_shapes'][lnr],
+                        [1, 2, 2, 1],
+                        self.net_params['topdown_output_shapes'][lnr]
                     )
+                    self.layers["topdown{}_batchnorm".format(lnr)] = \
+                        bb.BatchNormalizationModule(
+                            "topdown{}_batchnorm".format(lnr),
+                        self.net_params[
+                            'topdown_output_shapes'][lnr][-1],
+                        is_training,
+                        beta_init=0.0,
+                        gamma_init=0.1,
+                        ema_decay_rate=0.5,
+                        moment_axes=[0, 1, 2],
+                        variance_epsilon=1e-3
+                        )
 
         # longrange topdown connections
         # TODO: implement long range connections
@@ -500,7 +509,6 @@ class NetworkClass(bb.ComposedModule):
                 # convolutional layers
                 self.layers["conv{}".format(
                     (lnr + 1))].add_input(self.layers["dropoutc{}".format(lnr)], 0)
-
 
             for lnr in range(self.net_params['depth']):
                 # pooling layers

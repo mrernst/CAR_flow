@@ -50,6 +50,7 @@ import csv
 import os
 import sys
 import errno
+import importlib
 import utilities.tfrecord_handler as tfrecord_handler
 import utilities.tfevent_handler as tfevent_handler
 from utilities.visualizer import put_kernels_on_grid, put_activations_on_grid
@@ -444,6 +445,11 @@ def infer_additional_parameters(configuration_dict):
     """
     # define correct network parameters
     # -----
+
+    # read the number of layers from the network file
+    circuit = importlib.import_module(configuration_dict['network_module'])
+    configuration_dict['network_depth'] = circuit.return_network_layers(
+        configuration_dict['connectivity'])
 
     if ('ycb' in configuration_dict['dataset']):
         configuration_dict['image_height'] = 240
