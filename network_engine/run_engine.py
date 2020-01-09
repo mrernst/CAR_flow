@@ -88,6 +88,12 @@ parser.add_argument(
      type=int,
      default=1,
      help='activate gpu acceleration')
+parser.add_argument(
+     "-mem",
+     "--memory",
+     type=int,
+     default=20,
+     help='memory to be reserved (GB)')
 args = parser.parse_args()
 
 
@@ -123,7 +129,7 @@ class SbatchDocument(object):
             "#SBATCH --ntasks-per-node=1 \n" + \
             "#SBATCH --cpus-per-task=4 \n" + \
             "#SBATCH --time=700:00:00 \n" + \
-            "#SBATCH --mem=20GB \n" + \
+            "#SBATCH --mem={}GB \n".format(args.memory) + \
             "#SBATCH --reservation triesch-shared \n" + \
             "#SBATCH --partition=sleuths \n" + \
             "#SBATCH --job-name={} \n".format(self.experiment_name) + \
