@@ -525,7 +525,7 @@ def infer_additional_parameters(configuration_dict):
         pass
 
     # overwrite the default time_depth if network is not recurrent
-    if configuration_dict['connectivity'] in ['B', 'BK', 'BF']:
+    if configuration_dict['connectivity'] in ['B', 'BK', 'BF', 'BD']:
         configuration_dict['time_depth'] = 0
         configuration_dict['time_depth_beyond'] = 0
     return configuration_dict
