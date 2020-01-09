@@ -187,8 +187,9 @@ class EmbeddingObject(object):
         for time in accuracy.outputs:
             self.total[time] = tf.Variable(
                 tf.zeros(shape=[0, int(np.prod(np.array(
-                    network.net_params['bias_shapes'][1]) / np.array(
-                    network.net_params['pool_strides'][1])))],
+                    network.net_params['bias_shapes'][network_depth - 1]) /
+                    np.array(
+                    network.net_params['pool_strides'][network_depth - 1])))],
                     dtype=tf.float32), validate_shape=False,
                 name="preclass_{}".format(time), trainable=False)
 
