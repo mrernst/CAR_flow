@@ -358,7 +358,7 @@ class NetworkClass(bb.ComposedModule):
                     # input_shape
                     int(np.prod(np.ceil(np.array(
                         self.net_params['bias_shapes'][-2]) /
-                        np.array(self.net_params['pool_strides'][-2])
+                        np.array(self.net_params['pool_strides'][-1])
                                         )
                                 )
                         ),
@@ -372,7 +372,7 @@ class NetworkClass(bb.ComposedModule):
                     self.net_params['activations'][-1],
                     int(np.prod(np.ceil(np.array(
                         self.net_params['bias_shapes'][-2]) /
-                        np.array(self.net_params['pool_strides'][-2])))),
+                        np.array(self.net_params['pool_strides'][-1])))),
                     np.prod(
                         self.net_params['bias_shapes'][-1])
                 )
