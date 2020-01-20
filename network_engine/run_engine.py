@@ -83,11 +83,17 @@ parser.add_argument(
      default=6006,
      help='port for tensorboard monitoring')
 parser.add_argument(
-     "-n-gpu",
+     "-gpus",
      "--number_of_gpus",
      type=int,
      default=1,
      help='activate gpu acceleration')
+parser.add_argument(
+     "-nodes",
+     "--number_of_nodes",
+     type=int,
+     default=1,
+     help='spread jobs on more nodes')
 parser.add_argument(
      "-mem",
      "--memory",
@@ -113,7 +119,6 @@ class SbatchDocument(object):
         gen_sbatch takes a parameter dict and a auxiliary_parameters dict and
         generates a sbatch file for the corresponding experiment
         """
-        number_of_nodes = 1
 
         bash_array = '('
         for p in paths_to_config_files:
@@ -138,7 +143,7 @@ class SbatchDocument(object):
             "#SBATCH --output={}slurm_output/{}_slurm_%j.out \n".format(
                 self.files_dir, self.experiment_name) + \
             "#SBATCH --array=0-{}%{} \n".format(len(paths_to_config_files)-1,
-                                                number_of_nodes)
+                                                args.number_of_nodes)
         if args.number_of_gpus > 0:
             header += "#SBATCH --gres=gpu:{} \n\n".format(args.number_of_gpus)
         else:
