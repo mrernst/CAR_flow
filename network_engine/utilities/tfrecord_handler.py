@@ -351,6 +351,87 @@ def _cifar10_parse_single(example_proto):
 def decode_bytebatch(raw_bytes):
     return tf.image.decode_jpeg(raw_bytes, channels=3)
 
+
+
+# -----------------
+# deprecated datasets
+# -----------------
+
+
+def _ycb1_parse_sequence(example_proto):
+    # Define how to parse the example
+    context_features = {
+    'sequence/length': tf.FixedLenFeature([], dtype=tf.int64),
+    'sequence/height': tf.FixedLenFeature([], dtype=tf.int64),
+    'sequence/width': tf.FixedLenFeature([], dtype=tf.int64),
+    'sequence/objectdistance': tf.FixedLenFeature([], dtype=tf.int64)
+    }
+    sequence_features = {
+        'image/left/filename': tf.FixedLenSequenceFeature([], dtype=tf.string),
+        'image/right/filename': tf.FixedLenSequenceFeature([], dtype=tf.string),
+
+        'image/left/encoded': tf.FixedLenSequenceFeature([], dtype=tf.string),
+        'image/right/encoded': tf.FixedLenSequenceFeature([], dtype=tf.string),
+
+        'image/class/label': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+        'image/class/text': tf.FixedLenSequenceFeature([], dtype=tf.string),
+
+        'image/objectroll': tf.FixedLenSequenceFeature([], dtype=tf.float32),
+        'image/objectpitch': tf.FixedLenSequenceFeature([], dtype=tf.float32),
+        'image/objectyaw': tf.FixedLenSequenceFeature([], dtype=tf.float32),
+
+        'image/colorspace': tf.FixedLenSequenceFeature([], dtype=tf.string),
+        'image/channels': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+        'image/format': tf.FixedLenSequenceFeature([], dtype=tf.string)
+
+    }
+
+    # Parse the example (returns a dictionary of tensors)
+    context_parsed, sequence_parsed = tf.parse_single_sequence_example(
+        serialized=example_proto,
+        context_features=context_features,
+        sequence_features=sequence_features
+        )
+    labels = sequence_parsed["image/class/label"]
+    one_hot = tf.one_hot(labels, 80)
+    images_encoded_lf = sequence_parsed["image/left/encoded"]
+    images_encoded_rf = sequence_parsed["image/right/encoded"]
+
+    images_decoded_lf = tf.map_fn(decode_bytebatch, images_encoded_lf,
+                                  dtype=tf.uint8)
+    images_decoded_rf = tf.map_fn(decode_bytebatch, images_encoded_rf,
+                                  dtype=tf.uint8)
+
+
+    return images_decoded_lf, images_decoded_rf, one_hot, one_hot
+
+
+def _ycb1_parse_single(example_proto):
+    features = {
+        "image/left/encoded": tf.FixedLenFeature([], tf.string),
+        "image/right/encoded": tf.FixedLenFeature([], tf.string),
+        "image/height": tf.FixedLenFeature([], tf.int64),
+        "image/width": tf.FixedLenFeature([], tf.int64),
+        "image/left/filename": tf.FixedLenFeature([], tf.string),
+        "image/right/filename": tf.FixedLenFeature([], tf.string),
+        "image/class/label": tf.FixedLenFeature([], tf.int64),
+        "image/class/text": tf.FixedLenFeature([], tf.string),}
+
+
+    parsed_features = tf.parse_single_example(example_proto, features)
+    labels = parsed_features["image/class/label"]
+    one_hot = tf.one_hot(parsed_features["image/class/label"], 80)
+    image_encoded_l = parsed_features["image/left/encoded"]
+    image_encoded_r = parsed_features["image/right/encoded"]
+    image_decoded_l = tf.cast(
+        tf.image.decode_jpeg(image_encoded_l, channels=3), tf.float32)
+    image_decoded_r = tf.cast(
+        tf.image.decode_jpeg(image_encoded_r, channels=3), tf.float32)
+
+    return image_decoded_l, image_decoded_r, one_hot, one_hot
+
+
+
 # _____________________________________________________________________________
 
 
