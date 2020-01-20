@@ -393,6 +393,15 @@ def get_input_directory(configuration_dict):
             configuration_dict['n_occluders']-1,
             configuration_dict['dataset'])
         parser = tfrecord_handler._digits_parse_single
+    # deprecated datasets
+    elif configuration_dict['dataset'] == "ycb1_single":
+        parser = tfrecord_handler._ycb1_parse_single
+        tfrecord_dir = ''
+        print("[INFO] Dataset is deprecated, paths must be defined manually.")
+    elif configuration_dict['dataset'] == "ycb1_sequence":
+        parser = tfrecord_handler._ycb1_parse_sequence
+        tfrecord_dir = ''
+        print("[INFO] Dataset is deprecated, paths must be defined manually.")
     else:
         print("[INFO] Dataset not defined")
         sys.exit()
