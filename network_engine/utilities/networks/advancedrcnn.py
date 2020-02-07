@@ -4,7 +4,7 @@
 # _____________________________________________________________________________
 #
 #                                                                         _.oo.
-# November 2019                                  _.u[[/;:,.         .odMMMMMM'
+# January 2020                                   _.u[[/;:,.         .odMMMMMM'
 #                                             .o888UU[[[/;:-.  .o@P^    MMM^
 # advancedrcnn.py                            oN88888UU[[[/;::-.        dP^
 # a dynamic network constructor with        dNMMNN888UU[[[/;:--.   .o@P^
@@ -21,7 +21,7 @@
 # _____________________________________________________________________________
 #
 #
-# Copyright 2019 Markus Ernst
+# Copyright 2020 Markus Ernst
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
