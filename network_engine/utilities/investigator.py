@@ -62,6 +62,11 @@ import argparse
 import matplotlib.pyplot as plt
 from tensorflow.python.training import checkpoint_utils as cu
 
+# custom functions
+# -----
+
+import visualizer
+
 
 # commandline arguments
 # -----
@@ -86,10 +91,6 @@ parser.add_argument(
      default=20,
      help='memory to be reserved (GB)')
 args = parser.parse_args()
-
-
-# custom functions
-# -----
 
 
 def mkdir_p(path):
@@ -144,8 +145,8 @@ def get_list_of_images(list_of_weights, stereo):
 # model path from config
 # -----
 
-def get_model_paths():
-    pass
+def get_model_paths_from_cfg():
+    return ''
 
 # Store weight matrices in a dict of arrays
 # -----
@@ -174,8 +175,11 @@ def get_model_paths():
 # -----
 
 if __name__ == __main__:
-    #modelpath = '/Users/markus/Research/Code/saturn/experiments/001_noname_experiment/data/config0/B0_2l_fm1_d1.0_l20.0_bn1_bs100_lr0.003/mnist_2occ_Xp/28x28x1_grayscale_onehot/checkpoints/'
-    modelpath = '/Users/markus/Research/Code/saturn/experiments/001_noname_experiment/data/config0/BLT3_2l_fm1_d1.0_l20.0_bn1_bs100_lr0.003/mnist_2occ_Xp/28x28x2_grayscale_onehot/checkpoints'
+
+    if args.config_file:
+        modelpath = get_model_paths_from_cfg(args.config_file)
+    else:
+        modelpath = '/Users/markus/Research/Code/saturn/experiments/001_noname_experiment/data/config0/BLT3_2l_fm1_d1.0_l20.0_bn1_bs100_lr0.003/mnist_0occ_Xp/28x28x1_grayscale_onehot/checkpoints'
 
 
 
