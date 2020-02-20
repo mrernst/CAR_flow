@@ -75,14 +75,14 @@ def constructor(name,
 
     def get_net_parameters(configuration_dict):
         net_param_dict = {}
-        receptive_pixels = 3
+        receptive_pixels = 3 #3
         n_features = 32
         feature_multiplier = configuration_dict['feature_multiplier']
 
         if "F" in configuration_dict['connectivity']:
             n_features = 64
         if "K" in configuration_dict['connectivity']:
-            receptive_pixels = 5
+            receptive_pixels = 5 #5
 
         net_param_dict["activations"] = [bb.lrn_relu, bb.lrn_relu, tf.identity]
         net_param_dict["conv_filter_shapes"] = [
