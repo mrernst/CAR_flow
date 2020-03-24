@@ -70,7 +70,7 @@ def get_par():
 
     par = {}
 
-    par['exp_name'] = ["osmnist_receptive5_stereo"]  # choose any value to be the name of the experiment
+    par['exp_name'] = ["fmnist_testrun"]
     # par['name'] must be defined as a FLAG to engine, b/c it resembles the
     # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
