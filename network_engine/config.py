@@ -74,7 +74,7 @@ def get_par():
     # par['name'] must be defined as a FLAG to engine, b/c it resembles the
     # iteration number that gets passed by the sbatch script
     # TODO: add documentation i.e. parameter possibilities
-    par['dataset'] = ["fashionmnist"]
+    par['dataset'] = ["osfashionmnist"]
 
     par['n_occluders'] = [0]
     par['occlusion_percentage'] = [0]
@@ -94,13 +94,13 @@ def get_par():
 
     par['write_every'] = [1]
     par['test_every'] = [1]
-    par['buffer_size'] = [60000]
+    par['buffer_size'] = [600000]
     par['verbose'] = [False]
     par['visualization'] = [True]
     par['projector'] = [True]
 
     par['batchsize'] = [100]
-    par['epochs'] = [10]
+    par['epochs'] = [1]
     par['learning_rate'] = [0.003]
 
     return par
@@ -136,6 +136,9 @@ def get_aux():
     aux['lr_d'] = [40.]
     aux['l2_lambda'] = [0.]
     aux['batchnorm'] = [True]
+    aux['global_weight_init_mean'] = ['None']
+    aux['global_weight_init_std'] = ['None']
+    # Info: None-Values have to be strings b/c of csv text conversion
 
     aux['iterations'] = [1]
     return aux
