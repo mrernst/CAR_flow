@@ -123,6 +123,22 @@ def compile_list_of_additional_summaries(network, time_depth,
     return add
 
 
+def check_disqualified_strings(input_str, list_of_disqualified_str):
+    """
+    Given an str input_str and a list of str list_of_disqualified_str
+    the function check_disqualified_strings returns true iff none of the
+    strings in list_of_disqualified_str is part of the input_str
+    """
+    return_bool = True
+    for dstr in list_of_disqualified_str:
+        if dstr in input_str:
+            return_bool = False
+        else:
+            pass
+
+    return return_bool
+
+
 def compile_list_of_image_summaries(network, stereo):
 
     image = []
@@ -157,6 +173,34 @@ def compile_list_of_image_summaries(network, stereo):
                     kname, tf.reshape(
                         kernel, [receptive_pixels, receptive_pixels,
                                  1, -1])), max_outputs=1))
+
+    disqualifiers = ['pool', 'fc', 'batchnorm', 'dropout']
+    for layer_key, layer_value in network.layers.items():
+        if check_disqualified_strings(layer_key, disqualifiers):
+            if 'conv' in layer_key:
+                act_name = '{}/activations/timedifference'.format(layer_key)
+                image.append(tf.compat.v1.summary.image(act_name,
+                             put_activations_on_grid(
+                                name=act_name,
+                                V=layer_value.outputs[
+                                    len(network.outputs)-1] - layer_value.outputs[0])))
+            for act_key, act_value in layer_value.outputs.items():
+                act_name = '{}/activations/{}'.format(layer_key, act_key)
+                image.append(tf.compat.v1.summary.image(act_name,
+                             put_activations_on_grid(
+                                name=act_name,
+                                V=act_value)
+                    )
+                )
+
+                act_name = '{}/activations/{}/batchmean'.format(layer_key, act_key)
+                image.append(tf.compat.v1.summary.image(act_name,
+                             put_activations_on_grid(
+                                name=act_name,
+                                V=tf.reduce_mean(
+                                    act_value, axis=0, keepdims=True))
+                    )
+                )
 
     return image
 
