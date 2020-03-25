@@ -179,11 +179,23 @@ def compile_list_of_image_summaries(network, stereo):
         if check_disqualified_strings(layer_key, disqualifiers):
             if 'conv' in layer_key:
                 act_name = '{}/activations/timedifference'.format(layer_key)
+                convt0 = layer_value.outputs[0]
+                convtend =layer_value.outputs[len(network.outputs)-1]
                 image.append(tf.compat.v1.summary.image(act_name,
                              put_activations_on_grid(
                                 name=act_name,
-                                V=layer_value.outputs[
-                                    len(network.outputs)-1] - layer_value.outputs[0])))
+                                V=convtend - convt0)))
+                # batch mean of timedifference
+                act_name = '{}/activations/timedifference/batchmean'.format(layer_key)
+                image.append(tf.compat.v1.summary.image(act_name,
+                             put_activations_on_grid(
+                                name=act_name,
+                                V=tf.reduce_mean(
+                                    convtend,
+                                    axis=0, keepdims=True) -
+                                tf.reduce_mean(
+                                    convt0, axis=0, keepdims=True))))
+
             for act_key, act_value in layer_value.outputs.items():
                 act_name = '{}/activations/{}'.format(layer_key, act_key)
                 image.append(tf.compat.v1.summary.image(act_name,
