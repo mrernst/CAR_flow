@@ -44,7 +44,9 @@
 
 # standard libraries
 # -----
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 
 # custom functions
@@ -78,27 +80,27 @@ class PreprocessorNetwork(bb.ComposedModule):
                      self.image_channels]),
             trainable=False)
 
-        self.update_stats['N'] = tf.compat.v1.assign_add(self.stats['N'],
+        self.update_stats['N'] = tf.assign_add(self.stats['N'],
                                                          self.batchsize)
-        self.update_stats['Sx'] = tf.compat.v1.assign_add(
+        self.update_stats['Sx'] = tf.assign_add(
             self.stats['Sx'], tf.expand_dims(
                 tf.reduce_sum(
                     tf.cast(self.input_module.outputs[0], tf.float32),
                     axis=0), 0))
-        self.update_stats['Sxx'] = tf.compat.v1.assign_add(
+        self.update_stats['Sxx'] = tf.assign_add(
             self.stats['Sxx'], tf.expand_dims(
                 tf.reduce_sum(tf.square(
                     tf.cast(self.input_module.outputs[0], tf.float32)),
                     axis=0), 0))
 
-        self.reset_stats['N'] = tf.compat.v1.assign(self.stats['N'], 0)
+        self.reset_stats['N'] = tf.assign(self.stats['N'], 0)
 
-        self.reset_stats['Sx'] = tf.compat.v1.assign(
+        self.reset_stats['Sx'] = tf.assign(
             self.stats['Sx'],
             tf.zeros([1, self.image_height, self.image_width,
                      self.image_channels]))
 
-        self.reset_stats['Sxx'] = tf.compat.v1.assign(
+        self.reset_stats['Sxx'] = tf.assign(
             self.stats['Sxx'],
             tf.zeros([1, self.image_height, self.image_width,
                      self.image_channels]))
@@ -121,11 +123,11 @@ class PreprocessorNetwork(bb.ComposedModule):
                         self.update_stats['Sxx']],
                     feed_dict={is_training.placeholder: False})
             except (tf.errors.OutOfRangeError):
-                session.run([tf.compat.v1.assign(
+                session.run([tf.assign(
                     self.layers['inp_norm'].n, self.stats['N']),
-                    tf.compat.v1.assign(self.layers['inp_norm'].sx,
+                    tf.assign(self.layers['inp_norm'].sx,
                                         self.stats['Sx']),
-                    tf.compat.v1.assign(self.layers['inp_norm'].sxx,
+                    tf.assign(self.layers['inp_norm'].sxx,
                                         self.stats['Sxx'])])
                 if show_image:
                     import matplotlib.pyplot as plt

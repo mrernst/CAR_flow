@@ -42,7 +42,9 @@
 # import libraries
 # ----------------
 
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 
 
@@ -720,7 +722,7 @@ class FlattenModule(OperationModule):
           ret:                  2D tensor, [B,H*W*C]
         """
 
-        ret = tf.reshape(x, (x.shape[0].value, -1), name=self.name)
+        ret = tf.reshape(x, (x.shape[0], -1), name=self.name)
         return ret
 
 
@@ -924,7 +926,7 @@ class PlaceholderModule(OperationModule):
         super().__init__(name, shape, dtype)
         self.shape = shape
         self.dtype = dtype
-        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
                                                     name=self.name)
 
     def operation(self):
@@ -1896,7 +1898,7 @@ class InputCanvasModule(OperationModule):
         self.shape = shape
         self.dtype = dtype
         self.trainable_input = trainable_input
-        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
                                                     name=self.name)
         self.canvas = tf.Variable(tf.random.truncated_normal(shape=self.shape,
                                   mean=0.0, stddev=0.1), name=name)
@@ -1927,7 +1929,7 @@ class InputSwitchModule(OperationModule):
         self.shape = shape
         self.dtype = dtype
         self.alt_input = alt_input
-        self.placeholder = tf.compat.v1.placeholder(shape=shape, dtype=dtype,
+        self.placeholder = tf.placeholder(shape=shape, dtype=dtype,
                                                     name=self.name)
 
     def operation(self, x):

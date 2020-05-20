@@ -46,7 +46,9 @@
 # standard libraries
 # -----
 
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 import matplotlib
 import tfplot
@@ -56,7 +58,8 @@ import re
 import errno
 import importlib
 
-from tensorflow.contrib.tensorboard.plugins import projector
+# from tensorflow.contrib.tensorboard.plugins import projector
+from tensorboard.plugins import projector
 
 # TODO: Integrate class activation map helper into building blocks,
 #  i.e. CAM Module
@@ -84,19 +87,19 @@ PWD_STEM = "/Users/markus/Research/Code/" if IS_MACOSX else "/home/mernst/git/"
 # FLAGS
 
 
-tf.app.flags.DEFINE_boolean('testrun', False,
+tf.flags.DEFINE_boolean('testrun', False,
                             'simple configuration on local machine to test')
-tf.app.flags.DEFINE_string('config_file', PWD_STEM +  #'/Users/markus/Research/Code/' + #'/home/mernst/git/'+
+tf.flags.DEFINE_string('config_file', PWD_STEM +  #'/Users/markus/Research/Code/' + #'/home/mernst/git/'+
                            'saturn/experiments/001_noname_experiment/' +
                            'files/config_files/config0.csv',
                            'path to the configuration file of the experiment')
-tf.app.flags.DEFINE_string('name', '',
+tf.flags.DEFINE_string('name', '',
                            'name of the run, i.e. iteration1')
-tf.app.flags.DEFINE_boolean('restore_ckpt', True,
+tf.flags.DEFINE_boolean('restore_ckpt', True,
                             'restore model from last checkpoint')
 
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.flags.FLAGS
 
 CONFIG = helper.infer_additional_parameters(
     helper.read_config_file(FLAGS.config_file)
@@ -121,11 +124,11 @@ class LearningRate(object):
         self.d = tf.Variable(d, trainable=False,
                              name='learning_rate_d')
 
-        self.divide_by_10 = tf.compat.v1.assign(self.rate, self.rate / 10,
+        self.divide_by_10 = tf.assign(self.rate, self.rate / 10,
                                                 name='divide_by_10')
 
         # TODO: initial learning rate should be specified in the setup
-        self.decay_by_epoch = tf.compat.v1.assign(
+        self.decay_by_epoch = tf.assign(
             self.rate, self.eta * self.delta **
             (tf.cast(global_epoch_variable, tf.float32) /
                 self.d), name='decay_by_epoch')
@@ -159,11 +162,11 @@ class EmbeddingObject(object):
             dtype=tf.float32), validate_shape=False,
             name="embedding_thumbnails", trainable=False)
 
-        update_embedding_labels = tf.compat.v1.assign(self.labels, tf.concat(
+        update_embedding_labels = tf.assign(self.labels, tf.concat(
             [self.labels, tf.argmax(labels.variable, axis=-1)],
             axis=0), validate_shape=False)
 
-        update_embedding_thumbnails = tf.compat.v1.assign(
+        update_embedding_thumbnails = tf.assign(
             self.thumbnails, tf.concat(
                 [self.thumbnails, tf.cast(
                     tf.image.resize_with_crop_or_pad(
@@ -172,11 +175,11 @@ class EmbeddingObject(object):
                         self.thu_height, self.thu_height), dtype=tf.float32)],
                 axis=0), validate_shape=False)
 
-        reset_embedding_labels = tf.compat.v1.assign(self.labels, tf.zeros(
+        reset_embedding_labels = tf.assign(self.labels, tf.zeros(
             shape=0, dtype=tf.int64),
             validate_shape=False)
 
-        reset_embedding_thumbnails = tf.compat.v1.assign(
+        reset_embedding_thumbnails = tf.assign(
             self.thumbnails, tf.zeros(
                 shape=[0, self.thu_height, self.thu_height, image_channels],
                 dtype=tf.float32),
@@ -193,13 +196,13 @@ class EmbeddingObject(object):
                          dtype=tf.float32), validate_shape=False,
                 name="preclass_{}".format(time), trainable=False)
 
-            update_embedding_preclass[time] = tf.compat.v1.assign(
+            update_embedding_preclass[time] = tf.assign(
                 self.total[time],
                 tf.concat([self.total[time],
                            embedding_tensor], axis=0),
                 validate_shape=False)
 
-            reset_embedding_preclass[time] = tf.compat.v1.assign(
+            reset_embedding_preclass[time] = tf.assign(
                 self.total[time],
                 tf.zeros(shape=[0, tf.shape(embedding_tensor)[-1]],
                          dtype=tf.float32), validate_shape=False)
@@ -224,8 +227,8 @@ class TestAccuracy(object):
         super(TestAccuracy, self).__init__()
 
         self.count = tf.Variable(0., trainable=False)
-        update_count = tf.compat.v1.assign_add(self.count, 1.)
-        reset_count = tf.compat.v1.assign(self.count, 0.)
+        update_count = tf.assign_add(self.count, 1.)
+        reset_count = tf.assign(self.count, 0.)
 
         total_test_accuracy = {}
         self.total_test_loss = {}
@@ -243,15 +246,15 @@ class TestAccuracy(object):
             total_test_accuracy[time] = tf.Variable(0., trainable=False)
             self.total_test_loss[time] = tf.Variable(0., trainable=False)
 
-            update_total_test_accuracy[time] = tf.compat.v1.assign_add(
+            update_total_test_accuracy[time] = tf.assign_add(
                 total_test_accuracy[time], accuracy.outputs[time])
 
-            update_total_test_loss[time] = tf.compat.v1.assign_add(
+            update_total_test_loss[time] = tf.assign_add(
                 self.total_test_loss[time], error.outputs[time])
 
-            reset_total_test_loss[time] = tf.compat.v1.assign(
+            reset_total_test_loss[time] = tf.assign(
                 self.total_test_loss[time], 0.)
-            reset_total_test_accuracy[time] = tf.compat.v1.assign(
+            reset_total_test_accuracy[time] = tf.assign(
                 total_test_accuracy[time], 0.)
 
             self.average_accuracy[time] = \
@@ -277,10 +280,10 @@ class TestAccuracy(object):
                 total_test_partial_accuracy[time] = tf.Variable(
                     0., trainable=False)
                 update_total_test_partial_accuracy[time] = \
-                    tf.compat.v1.assign_add(
+                    tf.assign_add(
                     total_test_partial_accuracy[time],
                     partial_accuracy.outputs[time])
-                reset_total_test_partial_accuracy[time] = tf.compat.v1.assign(
+                reset_total_test_partial_accuracy[time] = tf.assign(
                     total_test_partial_accuracy[time], 0.)
                 self.average_partial_accuracy[time] = \
                     total_test_partial_accuracy[time] / self.count
@@ -311,13 +314,13 @@ class ConfusionMatrix(object):
             tf.zeros([classes, classes]),
             name="confusion_matrix", trainable=False)
 
-        update_confusion_matrix = tf.compat.v1.assign_add(
+        update_confusion_matrix = tf.assign_add(
             self.total, tf.matmul(tf.transpose(
                 tf.one_hot(tf.argmax(
                     network.outputs[time_depth], 1), classes)),
                 labels.outputs[time_depth]))
 
-        reset_confusion_matrix = tf.compat.v1.assign(
+        reset_confusion_matrix = tf.assign(
             self.total, tf.zeros([classes, classes]))
 
         self.update = tf.group(update_confusion_matrix)
@@ -360,11 +363,11 @@ is_training = bb.PlaceholderModule(
 # TODO: This could be one class that can be incremented and maybe even account
 # for batch accuracy.
 global_step = tf.Variable(0, trainable=False, name='global_step')
-increment_global_step = tf.compat.v1.assign_add(
+increment_global_step = tf.assign_add(
     global_step, 1, name='increment_global_step')
 
 global_epoch = tf.Variable(0, trainable=False, name='global_epoch')
-increment_global_epoch = tf.compat.v1.assign_add(
+increment_global_epoch = tf.assign_add(
     global_epoch, 1, name='increment_global_epoch')
 
 lrate = LearningRate(CONFIG['learning_rate'],
@@ -399,7 +402,7 @@ training_filenames, validation_filenames, test_filenames,\
 
 
 # parse data from tf-record files
-filenames = tf.compat.v1.placeholder(tf.string, shape=[None])
+filenames = tf.placeholder(tf.string, shape=[None])
 dataset = tf.data.TFRecordDataset(filenames)
 dataset = dataset.map(PARSER)
 
@@ -409,7 +412,7 @@ if FLAGS.testrun:
 
 dataset = dataset.shuffle(CONFIG['buffer_size'])  # bad for evaluation?
 dataset = dataset.batch(CONFIG['batchsize'], drop_remainder=True)
-iterator = dataset.make_initializable_iterator()
+iterator = tf.data.make_initializable_iterator(dataset)
 next_batch = iterator.get_next()
 
 inp_left = next_batch[0]
@@ -484,7 +487,7 @@ network = circuit.constructor("rcnn",
 one_time_error = bb.ErrorModule("cross_entropy", CONFIG['crossentropy_fn'])
 error = bb.TimeAddModule("add_error")
 optimizer = bb.OptimizerModule("adam",
-                               tf.compat.v1.train.AdamOptimizer(lrate.rate))
+                               tf.train.AdamOptimizer(lrate.rate))
 accuracy = bb.BatchAccuracyModule("accuracy")
 
 network.add_input(inp_prep)
@@ -601,28 +604,28 @@ test_merged, train_merged, image_merged, add_merged = \
 # start session, merge summaries, start writers
 # -----
 
-with tf.compat.v1.Session() as sess:
+with tf.Session() as sess:
 
-    train_writer = tf.compat.v1.summary.FileWriter(
+    train_writer = tf.summary.FileWriter(
         WRITER_DIRECTORY + '/training', sess.graph)
-    test_writer = tf.compat.v1.summary.FileWriter(
+    test_writer = tf.summary.FileWriter(
         WRITER_DIRECTORY + '/testing')
-    add_writer = tf.compat.v1.summary.FileWriter(
+    add_writer = tf.summary.FileWriter(
         WRITER_DIRECTORY + '/testing/extra')
-    image_writer = tf.compat.v1.summary.FileWriter(
+    image_writer = tf.summary.FileWriter(
         WRITER_DIRECTORY + '/testing/images')
 
     if FLAGS.testrun:
         # debug writer for metadata etc.
-        debug_writer = tf.compat.v1.summary.FileWriter(
+        debug_writer = tf.summary.FileWriter(
             WRITER_DIRECTORY + '/debug', sess.graph)
         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
 
-    saver = tf.compat.v1.train.Saver(
+    saver = tf.train.Saver(
         keep_checkpoint_every_n_hours=1, max_to_keep=2,
         save_relative_paths=True)
-    sess.run(tf.compat.v1.global_variables_initializer())
+    sess.run(tf.global_variables_initializer())
 
     # training and testing functions
     # -----
@@ -738,7 +741,7 @@ with tf.compat.v1.Session() as sess:
             embeddings_dict[i].sprite.single_image_dim.extend(
                 [embedding.thu_height, embedding.thu_height])
 
-        tsne_writer = tf.compat.v1.summary.FileWriter(
+        tsne_writer = tf.summary.FileWriter(
             CHECKPOINT_DIRECTORY + 'evaluation/')
         projector.visualize_embeddings(
             tsne_writer, projector_config)

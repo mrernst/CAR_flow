@@ -44,7 +44,9 @@
 
 # standard libraries
 # -----
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
@@ -194,21 +196,21 @@ def variable_summaries(var, name, weights=False):
     summaries = []
     with tf.name_scope('summaries_{}'.format(name)):
         mean = tf.reduce_mean(var)
-        summaries.append(tf.compat.v1.summary.scalar('mean', mean))
+        summaries.append(tf.summary.scalar('mean', mean))
         with tf.name_scope('stddev'):
             stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-        summaries.append(tf.compat.v1.summary.scalar(
+        summaries.append(tf.summary.scalar(
             'stddev', stddev))
-        summaries.append(tf.compat.v1.summary.scalar(
+        summaries.append(tf.summary.scalar(
             'max', tf.reduce_max(var)))
-        summaries.append(tf.compat.v1.summary.scalar(
+        summaries.append(tf.summary.scalar(
             'min', tf.reduce_min(var)))
         if weights:
             # exitatory = tf.nn.relu(var)
             # inhibitory = tf.nn.relu(tf.negative(var))
             # summaries += variable_summaries(exitatory, name + '/exitatory')
             # summaries += variable_summaries(inhibitory, name + '/inhibitory')
-            summaries.append(tf.compat.v1.summary.scalar('norm', tf.norm(var)))
+            summaries.append(tf.summary.scalar('norm', tf.norm(var)))
             # summaries.append(tf.summary.histogram('histogram', var))
     return summaries
 
@@ -218,7 +220,7 @@ def module_scalar_summary(module):
     module_scalar_summary takes a module as its argument and returns a list
     of summary objects to be added to a list or merged
     """
-    return [tf.compat.v1.summary.scalar(module.name + "_{}".format(timestep),
+    return [tf.summary.scalar(module.name + "_{}".format(timestep),
             module.outputs[timestep]) for timestep in module.outputs]
 
 

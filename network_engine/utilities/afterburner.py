@@ -44,7 +44,9 @@
 
 # standard libraries
 # -----
-import tensorflow as tf
+#import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 import pickle
 import os
@@ -67,11 +69,11 @@ import utilities.tfevent_handler as tfevent_handler
 
 # commandline arguments
 # -----
-tf.app.flags.DEFINE_string('path_to_experiment', '/Users/markus/Research/' +
+tf.flags.DEFINE_string('path_to_experiment', '/Users/markus/Research/' +
                            'Code/saturn/experiments/001_noname_experiment/',
                            'path to the experiment, i.e. the data_essences')
 
-FLAGS = tf.app.flags.FLAGS
+FLAGS = tf.flags.FLAGS
 
 
 class DataEssence(object):

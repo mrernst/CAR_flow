@@ -44,7 +44,9 @@
 
 # standard libraries
 # -----
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 import numpy as np
 from PIL import Image
 from textwrap import wrap
