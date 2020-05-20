@@ -32,6 +32,7 @@ Temporary Items
 __pycache__
 tfrecord_files
 image_files
+demo_images
 
 # Directories that will be filled by code
 experiments/*
