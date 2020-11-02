@@ -49,6 +49,8 @@ import numpy as np
 from pdb import set_trace
 import os
 import errno
+from scipy.ndimage import zoom
+
 
 # commandline arguments
 # -----
@@ -70,6 +72,8 @@ tf.app.flags.DEFINE_boolean('testrun', False,
                             'small dataset for testing purposes')
 tf.app.flags.DEFINE_boolean('export', False,
                             'export to jpeg files')
+tf.app.flags.DEFINE_boolean('zoom', False,
+                            'scale objects by distance')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -86,6 +90,55 @@ SCALING_ARRAY = np.ones([N_MAX_OCCLUDERS+1, 2])
 # custom functions
 # -----
 
+def clipped_zoom(img, zoom_factor, **kwargs):
+
+    h, w = img.shape[:2]
+
+    # For multichannel images we don't want to apply the zoom factor to the RGB
+    # dimension, so instead we create a tuple of zoom factors, one per array
+    # dimension, with 1's for any trailing dimensions after the width and height.
+    zoom_tuple = (zoom_factor,) * 2 + (1,) * (img.ndim - 2)
+
+    # Zooming out
+    if zoom_factor < 1:
+
+        # Bounding box of the zoomed-out image within the output array
+        zh = int(np.round(h * zoom_factor))
+        zw = int(np.round(w * zoom_factor))
+        top = (h - zh) // 2
+        left = (w - zw) // 2
+
+        # Zero-padding
+        out = np.zeros_like(img)
+        out[top:top+zh, left:left+zw] = zoom(img, zoom_tuple, **kwargs)
+
+    # Zooming in
+    elif zoom_factor > 1:
+
+        # Bounding box of the zoomed-in region within the input array
+        zh = int(np.round(h / zoom_factor))
+        zw = int(np.round(w / zoom_factor))
+        top = (h - zh) // 2
+        left = (w - zw) // 2
+
+        out = zoom(img[top:top+zh, left:left+zw], zoom_tuple, **kwargs)
+
+        # `out` might still be slightly larger than `img` due to rounding, so
+        # trim off any extra pixels at the edges
+        trim_top = ((out.shape[0] - h) // 2)
+        trim_left = ((out.shape[1] - w) // 2)
+        out = out[trim_top:trim_top+h, trim_left:trim_left+w]
+
+    # If zoom_factor == 1, just return the input array
+    else:
+        out = img
+    return out
+
+
+def get_zoom(z_tar, true_size = .6):
+    canvas_size = 1 * 2 * z_tar # tan(45) = 1
+    return true_size/canvas_size
+    
 
 def mkdir_p(path):
     """
@@ -142,11 +195,11 @@ def _write_to_file(img_enc_left, img_enc_right, labels, target, count):
     mkdir_p("./export/{}/left/label_{}/".format(target, labels[0]))
     mkdir_p("./export/{}/right/label_{}/".format(target, labels[0]))
 
-    f = open("./export/{}/left/label_{}/{}.jpeg".format(target,
+    f = open("./export/{}/left/label_{}/{}.png".format(target,
              labels[0], count), "wb+")
     f.write(img_enc_left)
     f.close()
-    f = open("./export/{}/right/label_{}/{}.jpeg".format(target,
+    f = open("./export/{}/right/label_{}/{}.png".format(target,
              labels[0], count), "wb+")
     f.write(img_enc_right)
     f.close()
@@ -159,6 +212,12 @@ def pad_to32(img, shape=[32, 32]):
     result[2-y_offset:30-y_offset, 2:30] = img
     return result
 
+
+def pad_to64(img, shape=[64, 64]):
+    '''shape=[h, w]'''
+    result = np.zeros(shape)
+    result[18:46, 18:46] = img
+    return result
 
 def pad_to56(img, shape=[56, 56]):
     '''shape=[h, w]'''
@@ -178,11 +237,13 @@ def random_crop(img, lshape=56, cshape=32, occludernumber=2,
                 vfloor=True, forced_offset=0):
     halfpoint = ((lshape - cshape) // 2)
     sizediff = (lshape - cshape)
-
+    
     i, j = np.random.choice(np.concatenate([
-        np.arange(0 + occludernumber, halfpoint - forced_offset),
-        np.arange(halfpoint + forced_offset,
-                  sizediff + 1 - occludernumber)]), 2)
+            np.arange(0 + occludernumber, halfpoint - forced_offset),
+            np.arange(halfpoint + forced_offset,
+                      sizediff + 1 - occludernumber)]), 2)
+        
+    
     if vfloor:
         i = halfpoint - int(round(((OCC_SHIFT[occludernumber]/2) + 0.025) *
                             ((28+(cshape-28)/2))))  # (28+(32-28)/2)
@@ -203,9 +264,9 @@ def distancetoangle(object_distance):
 
 
 for i in range(N_MAX_OCCLUDERS):
-    OCC_DIST[i] = np.arange(0.4, 0.2, (0.4 - 0.2) / (-1 * N_MAX_OCCLUDERS))[i]
+    OCC_DIST[i] = np.arange(0.4, 0.1, -0.1)[i]
     OCC_DIST_TO_FOC[i] = FOC_DIST - \
-        np.arange(0.4, 0.2, (0.4 - 0.2) / (-1 * N_MAX_OCCLUDERS))[i]
+       np.arange(0.4, 0.1, -0.1)[i]
 
 for i in range(N_MAX_OCCLUDERS):
     OCC_SHIFT[i+1] = 2*(OCC_DIST_TO_FOC[i] *
@@ -365,12 +426,12 @@ class OSMNISTBuilder(object):
 
         # pad the target
         if self.centered_target:
-            combined_array_left[:, :, 0] = pad_to32(combined_array[:, :, 0])
+            combined_array_left[:, :, 0] = pad_to32(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST)))
             combined_array_right[:, :, 0] = combined_array_left[:, :, 0]
         else:
             combined_array_left[:, :, 0], combined_array_right[:, :, 0] = \
-                random_crop(pad_to42(combined_array[:, :, 0]),
-                            lshape=42, cshape=32,
+                random_crop(pad_to64(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST))),
+                            lshape=64, cshape=32,
                             occludernumber=0, vfloor=self.centered_target)
         unoccluded_target = combined_array_left[:, :, 0]
         target_pixels = unoccluded_target[unoccluded_target != 0].shape[0]
@@ -378,10 +439,12 @@ class OSMNISTBuilder(object):
         # Shuffle the occluders
         for dig in range(1, len(labels)):
             combined_array_left[:, :, dig], combined_array_right[:, :, dig] = \
-                random_crop(pad_to42(combined_array[:, :, dig]),
-                            lshape=42, cshape=32,
-                            occludernumber=dig, vfloor=self.centered_target)
-
+                random_crop(pad_to64(clipped_zoom(combined_array[:, :, dig], get_zoom(OCC_DIST[dig-1]))),
+                            lshape=64, cshape=32,
+                            occludernumber=dig, vfloor=self.centered_target) # i think zooming has to happen here
+        
+        
+        
         # Make sure there is a notion of occlusion and order
         for dig in range(len(labels)-1):
             # combined_array_left[:,:,dig]\
@@ -445,9 +508,9 @@ class OSMNISTBuilder(object):
               count):
         if FLAGS.export:
             encoded_left = self.sess.run(
-                self.jpeg_img, feed_dict={self.np_img: merged_image_left})
+                self.png_img, feed_dict={self.np_img: merged_image_left})
             encoded_right = self.sess.run(
-                self.jpeg_img, feed_dict={self.np_img: merged_image_right})
+                self.png_img, feed_dict={self.np_img: merged_image_right})
             _write_to_file(encoded_left, encoded_right,
                            labels, target, count)
 
