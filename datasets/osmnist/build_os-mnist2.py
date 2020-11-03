@@ -71,7 +71,7 @@ tf.app.flags.DEFINE_boolean('centered_target', False,
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'small dataset for testing purposes')
 tf.app.flags.DEFINE_boolean('export', False,
-                            'export to jpeg files')
+                            'export to png files')
 tf.app.flags.DEFINE_boolean('zoom', False,
                             'scale objects by distance')
 
@@ -466,16 +466,19 @@ class OSMNISTBuilder(object):
         # target_right = combined_array_right[:, :, 0:1]
 
         # calculate occlusion percentage
-        occlusion_percentage_left = \
-            (target_pixels -
-                combined_array_left[:, :, 0]
-                [combined_array_left[:, :, 0] != 0]
-                .shape[0])/target_pixels
-        occlusion_percentage_right = \
-            (target_pixels -
-                combined_array_right[:, :, 0]
-                [combined_array_right[:, :, 0] != 0]
-                .shape[0])/target_pixels
+        if target_pixels == 0:
+            occlusion_percentage_left, occlusion_percentage_right = 1.1,1.1
+        else:
+            occlusion_percentage_left = \
+                (target_pixels -
+                    combined_array_left[:, :, 0]
+                    [combined_array_left[:, :, 0] != 0]
+                    .shape[0])/target_pixels
+            occlusion_percentage_right = \
+                (target_pixels -
+                    combined_array_right[:, :, 0]
+                    [combined_array_right[:, :, 0] != 0]
+                    .shape[0])/target_pixels
         # merge the two images
         combined_img_left = np.max(combined_array_left, -1, keepdims=True)
         combined_img_right = np.max(combined_array_right, -1, keepdims=True)
