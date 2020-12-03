@@ -112,6 +112,21 @@ tf.app.flags.DEFINE_string('input_directory',
                            'where the image data is actually stored')
 tf.app.flags.DEFINE_string('pdstruct_file', '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/dataframes/OSYCB_2occ_allperc_combined.gzip',
                            'Pandas Dataframe Pickle file')
+
+# directories for the differentiable data
+# '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/dataframes/OSYCB_2occ_allperc_combined.gzip''
+
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/20p/YCBdb2_2occ_20p_usample1000_downsampled4.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/40p/YCBdb2_2occ_40p_usample1000_downsampled4.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/60p/YCBdb2_2occ_60p_usample1000_downsampled4.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/80p/YCBdb2_2occ_80p_usample1000_downsampled4.gzip'
+
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/20p/YCBdb2_2occ_20p_usample1000.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/40p/YCBdb2_2occ_40p_usample1000.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/60p/YCBdb2_2occ_60p_usample1000.gzip'
+# '/home/aecgroup/aecdata/Results_python/markus/OS-YCB/YCB_database2/dataframes/2occ/80p/YCBdb2_2occ_80p_usample1000.gzip'
+
+
 tf.app.flags.DEFINE_string('output_directory',
                            '/home/aecgroup/aecdata/Textures/occluded/datasets/osycb/',
                            'where the tfrecord files will be stored')
