@@ -68,6 +68,8 @@ tf.app.flags.DEFINE_integer('n_shards', 1,
                             'number of files for the dataset')
 tf.app.flags.DEFINE_boolean('centered_target', False,
                             'center target in the middle, additional cue')
+tf.app.flags.DEFINE_boolean('vfloor', False,
+                            'occluders arranged on virtual floor, use with centered_target = True')
 tf.app.flags.DEFINE_boolean('testrun', False,
                             'small dataset for testing purposes')
 tf.app.flags.DEFINE_boolean('export', False,
@@ -280,12 +282,13 @@ for i in range(N_MAX_OCCLUDERS):
 
 class OSMNISTBuilder(object):
     def __init__(self, n_proliferation=10, num_class=10,
-                 shape=[32, 32, 1], centered_target=True,
+                 shape=[32, 32, 1], centered_target=True, vfloor=True,
                  fashion=False, kuzushiji=False):
         self.fashion = fashion
         self.kuzushiji = kuzushiji
         self.num_class = num_class
-        self.centered_target = centered_target
+        self.centered_target = True if vfloor else centered_target
+        self.vfloor = vfloor
         self.n_per_class, self.remainder = divmod(
             n_proliferation, num_class - 1)
         self.n_proliferation = n_proliferation
@@ -441,7 +444,7 @@ class OSMNISTBuilder(object):
             combined_array_left[:, :, dig], combined_array_right[:, :, dig] = \
                 random_crop(pad_to64(clipped_zoom(combined_array[:, :, dig], get_zoom(OCC_DIST[dig-1]))),
                             lshape=64, cshape=32,
-                            occludernumber=dig, vfloor=self.centered_target) # i think zooming has to happen here
+                            occludernumber=dig, vfloor=self.vfloor) # i think zooming has to happen here
         
         
         
@@ -565,6 +568,7 @@ if __name__ == '__main__':
     FLAGS.n_proliferation //= FLAGS.n_shards
     builder = OSMNISTBuilder(
         centered_target=FLAGS.centered_target,
+        vfloor=FLAGS.vfloor,
         n_proliferation=FLAGS.n_proliferation,
         fashion=FLAGS.fashion,
         kuzushiji=FLAGS.kuzushiji)
