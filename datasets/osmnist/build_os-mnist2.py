@@ -74,6 +74,8 @@ tf.app.flags.DEFINE_boolean('testrun', False,
                             'small dataset for testing purposes')
 tf.app.flags.DEFINE_boolean('export', False,
                             'export to png files')
+tf.app.flags.DEFINE_boolean('rgb_export', False,
+                            'export to png files with 3 channels')
 tf.app.flags.DEFINE_boolean('zoom', False,
                             'scale objects by distance')
 
@@ -207,10 +209,13 @@ def _write_to_file(img_enc_left, img_enc_right, labels, target, count):
     f.close()
 
 
-def pad_to32(img, shape=[32, 32]):
+def pad_to32(img, shape=[32, 32], vfloor=True):
     '''shape=[h, w]'''
     result = np.zeros(shape)
-    y_offset = int(round(0.025*((28+(shape[0]-28)/2))))
+    if vfloor:
+        y_offset = int(round(0.025*((28+(shape[0]-28)/2))))
+    else:
+        y_offset = 0
     result[2-y_offset:30-y_offset, 2:30] = img
     return result
 
@@ -429,7 +434,7 @@ class OSMNISTBuilder(object):
 
         # pad the target
         if self.centered_target:
-            combined_array_left[:, :, 0] = pad_to32(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST)))
+            combined_array_left[:, :, 0] = pad_to32(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST)), vfloor=self.vfloor)
             combined_array_right[:, :, 0] = combined_array_left[:, :, 0]
         else:
             combined_array_left[:, :, 0], combined_array_right[:, :, 0] = \
@@ -447,6 +452,18 @@ class OSMNISTBuilder(object):
                             occludernumber=dig, vfloor=self.vfloor) # i think zooming has to happen here
         
         
+        # here is the last chance to save all three 'pure' digits
+        # if True:
+        #     encoded_left = self.sess.run(
+        #         self.png_img, feed_dict={self.np_img: combined_array_left})
+        #     encoded_right = self.sess.run(
+        #         self.png_img, feed_dict={self.np_img: combined_array_right})
+        #     _write_to_file(encoded_left, encoded_right,
+        #                    labels, target, count)
+        
+        # here is also the last chance to set the occluders to zero
+        # combined_array_left[:,:,1:] = np.zeros_like(combined_array_left[:,:,1:])
+        # combined_array_right[:,:,1:] = np.zeros_like(combined_array_right[:,:,1:])
         
         # Make sure there is a notion of occlusion and order
         for dig in range(len(labels)-1):
@@ -500,7 +517,7 @@ class OSMNISTBuilder(object):
         # find out if occlusion is between .2 and .8
         o_avg = \
             (occlusion_percentage_left + occlusion_percentage_right)/2
-        if (o_avg > cond[0]) and (o_avg < cond[1]):
+        if (o_avg >= cond[0]) and (o_avg <= cond[1]):
             return combined_img_left, combined_img_right,\
                 occlusion_percentage_left, occlusion_percentage_right,\
                 segmap_left, segmap_right
