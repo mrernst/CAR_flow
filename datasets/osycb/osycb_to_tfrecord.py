@@ -304,7 +304,7 @@ class ImageCoder(object):
         self.random_cropped = tf.image.encode_jpeg(tf.image.random_crop(
             tf.image.resize_with_crop_or_pad(
                 image_decoded,
-                60, 60)
+                56, 56)
             , size = [32, 32, 3]), format='rgb', quality=100)
 
         self._encode_jpeg_data = tf.placeholder(dtype=tf.uint8)
