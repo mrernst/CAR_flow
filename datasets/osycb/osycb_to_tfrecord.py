@@ -153,6 +153,8 @@ tf.app.flags.DEFINE_boolean('export', False,
                             'export to jpeg files')
 tf.app.flags.DEFINE_boolean('central_crop', False,
                             'central crop of the image')
+tf.app.flags.DEFINE_boolean('random_crop', False,
+'random crop of central crop of the image, target visible')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -296,8 +298,15 @@ class ImageCoder(object):
         image_decoded = tf.image.decode_jpeg(self._crop_data, channels=3)
         self.cropped = tf.image.encode_jpeg(tf.image.resize_with_crop_or_pad(
             image_decoded,
-            32,
-            32), format='rgb', quality=100)
+            32, 32), format='rgb', quality=100)
+        
+        
+        self._rcrop_data = tf.placeholder(dtype=tf.string)
+        self.random_cropped = tf.image.encode_jpeg(tf.image.random_crop(
+            tf.image.resize_with_crop_or_pad(
+                image_decoded,
+                60, 60)
+            , size = [32, 32, 3]), format='rgb', quality=100)
 
         self._encode_jpeg_data = tf.placeholder(dtype=tf.uint8)
         self._encode_jpeg = tf.image.encode_jpeg(
@@ -308,10 +317,14 @@ class ImageCoder(object):
             self._encode_png_data)
 
     def central_crop(self, image_data, target_height, target_width):
-        # Initializes function that converts rgb to grayscale
         image = self._sess.run(self.cropped,
                                feed_dict={self._crop_data: image_data})
-
+        return image
+    
+    def random_crop(self, image_data, target_height, target_width):
+        "TODO: Make this work properly"
+        image = self._sess.run(self.random_cropped,
+                               feed_dict={self._rcrop_data: image_data})
         return image
 
     def encode_jpeg(self, array):
@@ -388,7 +401,8 @@ def _process_image(filename, coder):
 
     if FLAGS.central_crop:
         image_data = coder.central_crop(image_data, width//10*4, width//10*4)
-
+    if FLAGS.random_crop:
+        image_data = coder.random_crop(image_data, width//10*4, width//10*4)
     return image_data, height, width
 
 # TODO: this needs to have additional inputs, too.
@@ -433,6 +447,10 @@ def _process_segmentation_map(filename_l, height, width, coder):
     if FLAGS.central_crop:
         segmap_l = coder.central_crop(jpeg_left, width//10*4, width//10*4)
         segmap_r = coder.central_crop(jpeg_right, width//10*4, width//10*4)
+        return segmap_l, segmap_r, height/10*4, width/10*4
+    if FLAGS.random_crop:
+        segmap_l = coder.random_crop(jpeg_left, width//10*4, width//10*4)
+        segmap_r = coder.random_crop(jpeg_right, width//10*4, width//10*4)
         return segmap_l, segmap_r, height/10*4, width/10*4
     else:
         return segmap_l, segmap_r, height, width
