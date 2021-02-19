@@ -76,8 +76,8 @@ tf.app.flags.DEFINE_boolean('export', False,
                             'export to png files')
 tf.app.flags.DEFINE_boolean('rgb_export', False,
                             'export to png files with 3 channels')
-tf.app.flags.DEFINE_boolean('zoom', False,
-                            'scale objects by distance')
+#tf.app.flags.DEFINE_boolean('zoom', False,
+#                            'scale objects by distance')
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -199,12 +199,12 @@ def _write_to_file(img_enc_left, img_enc_right, labels, target, count):
     mkdir_p("./export/{}/left/label_{}/".format(target, labels[0]))
     mkdir_p("./export/{}/right/label_{}/".format(target, labels[0]))
 
-    f = open("./export/{}/left/label_{}/{}.png".format(target,
-             labels[0], count), "wb+")
+    f = open("./export/{}/left/label_{}/{}-{}-{}-{}.png".format(target,
+             labels[0], count, labels[0], labels[1], labels[2]), "wb+")
     f.write(img_enc_left)
     f.close()
-    f = open("./export/{}/right/label_{}/{}.png".format(target,
-             labels[0], count), "wb+")
+    f = open("./export/{}/right/label_{}/{}-{}-{}-{}.png".format(target,
+             labels[0], count, labels[0], labels[1], labels[2]), "wb+")
     f.write(img_enc_right)
     f.close()
 
@@ -259,6 +259,17 @@ def random_crop(img, lshape=56, cshape=32, occludernumber=2,
         img[i: i + cshape, jr: jr + cshape]
 
 
+def target_affine_crop(img, lshape=56, cshape=32, x_offset=8, y_offset=-8):
+    halfpoint = ((lshape - cshape) // 2)
+    sizediff = (lshape - cshape)
+    
+    i, j = halfpoint + x_offset, halfpoint + y_offset
+    
+    jr = j
+    return img[i: i + cshape, j: j + cshape], \
+        img[i: i + cshape, jr: jr + cshape]
+
+
 def distancetoangle(object_distance):
     ''' distancetoangle takes the object_distance defined by initializing an
     object and returns the angle needed to adjust vergence of the robot'''
@@ -293,6 +304,7 @@ class OSMNISTBuilder(object):
         self.kuzushiji = kuzushiji
         self.num_class = num_class
         self.centered_target = True if vfloor else centered_target
+        self.shifted_target = False
         self.vfloor = vfloor
         self.n_per_class, self.remainder = divmod(
             n_proliferation, num_class - 1)
@@ -436,6 +448,10 @@ class OSMNISTBuilder(object):
         if self.centered_target:
             combined_array_left[:, :, 0] = pad_to32(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST)), vfloor=self.vfloor)
             combined_array_right[:, :, 0] = combined_array_left[:, :, 0]
+        elif self.shifted_target:
+            combined_array_left[:, :, 0], combined_array_right[:, :, 0] = \
+            target_affine_crop(pad_to64(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST))),
+                        lshape=64, cshape=32)
         else:
             combined_array_left[:, :, 0], combined_array_right[:, :, 0] = \
                 random_crop(pad_to64(clipped_zoom(combined_array[:, :, 0], get_zoom(FOC_DIST))),
