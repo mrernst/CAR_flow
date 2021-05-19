@@ -314,15 +314,17 @@ class OSMNISTBuilder(object):
         self.png_img = tf.image.encode_png(self.np_img)
         self.jpeg_img = tf.image.encode_jpeg(self.np_img)
 
-        self.np_rgb_img = tf.compat.v1.placeholder(tf.uint8, shape=[32, 32, 3])
-        self.png_rgb_img = tf.image.encode_png(self.np_rgb_img)
-        self.jpeg_rgb_img = tf.image.encode_jpeg(self.np_rgb_img)
+        # self.np_rgb_img = tf.compat.v1.placeholder(tf.uint8, shape=[32, 32, 3])
+        # self.png_rgb_img = tf.image.encode_png(self.np_rgb_img)
+        # self.jpeg_rgb_img = tf.image.encode_jpeg(self.np_rgb_img)
 
         self.sess = None
         self.tfr_writer = None
 
     def build(self, oFilename, target='training'):
         ''' build training or testing set '''
+        self.deployment_target = target
+        
         if target == 'training':
             x, _, array_size = self._load_mnist()
             N_OUTPUT = self.n_proliferation*array_size[0]
@@ -367,7 +369,7 @@ class OSMNISTBuilder(object):
                                    occlusion_percentage_right,
                                    segmentation_map_left,
                                    segmentation_map_right,
-                                   tfr_writer, target, c)
+                                   tfr_writer, self.deployment_target, c)
                         print('\rProcessing {:08d}/{:08d}...'
                               .format(c, N_OUTPUT), end='')
                         c += 1
@@ -395,7 +397,7 @@ class OSMNISTBuilder(object):
                                occlusion_percentage_right,
                                segmentation_map_left,
                                segmentation_map_right,
-                               tfr_writer, target, c)
+                               tfr_writer, self.deployment_target, c)
                     print('\rProcessing {:08d}/{:08d}...'
                           .format(c, N_OUTPUT), end='')
                     c += 1
@@ -441,8 +443,8 @@ class OSMNISTBuilder(object):
         #            interpolation=cv2.INTER_CUBIC)
         # instead of random_cropping only do a padded version of xi
         # so xi is in the middle of the canvas
-        combined_array_left = np.zeros([32, 32, 4])
-        combined_array_right = np.zeros([32, 32, 4])
+        combined_array_left = np.zeros([32, 32, 3])
+        combined_array_right = np.zeros([32, 32, 3])
 
         # pad the target
         if self.centered_target:
@@ -469,13 +471,9 @@ class OSMNISTBuilder(object):
         
         
         # here is the last chance to save all three 'pure' digits
-        # if True:
-        #     encoded_left = self.sess.run(
-        #         self.png_img, feed_dict={self.np_img: combined_array_left})
-        #     encoded_right = self.sess.run(
-        #         self.png_img, feed_dict={self.np_img: combined_array_right})
-        #     _write_to_file(encoded_left, encoded_right,
-        #                    labels, target, count)
+        full_array_left = combined_array_left.copy()
+        full_array_right = combined_array_right.copy()
+        
         
         # here is also the last chance to set the occluders to zero
         # combined_array_left[:,:,1:] = np.zeros_like(combined_array_left[:,:,1:])
@@ -518,6 +516,11 @@ class OSMNISTBuilder(object):
         # merge the two images
         combined_img_left = np.max(combined_array_left, -1, keepdims=True)
         combined_img_right = np.max(combined_array_right, -1, keepdims=True)
+        
+        # make the images tuples with the full information
+        combined_img_left = (combined_img_left, full_array_left)
+        combined_img_right = (combined_img_right, full_array_left)
+        
         return combined_img_left, combined_img_right,\
             occlusion_percentage_left, occlusion_percentage_right,\
             segmap_left, segmap_right
@@ -545,13 +548,52 @@ class OSMNISTBuilder(object):
               labels, occlusion_percentage_left, occlusion_percentage_right,
               segmentation_map_left, segmentation_map_right, writer, target,
               count):
+        
+        merged_image_left, full_array_left = merged_image_left
+        merged_image_right, full_array_right = merged_image_right
+        
+        # test to see if one can resort the pixels easily
+        bin_image_left = np.array(np.array(full_array_left, dtype=np.bool),dtype=np.uint8)
+        bin_image_right = np.array(np.array(full_array_right, dtype=np.bool),dtype=np.uint8)
+        
+        occluder_pixel_left = np.array((bin_image_left[:,:,1] + bin_image_left[:,:,2]) > 0, dtype=np.uint8)
+        occluder_pixel_right = np.array((bin_image_right[:,:,1] + bin_image_right[:,:,2]) > 0, dtype=np.uint8)
+        
+        target_pixel_left = bin_image_left[:,:,0]
+        target_pixel_right = bin_image_right[:,:,0]
+        
+        overlap_pixel_left = np.array((target_pixel_left + occluder_pixel_left) == 2, dtype=np.uint8)
+        overlap_pixel_right = np.array((target_pixel_right + occluder_pixel_right) == 2, dtype=np.uint8)
+
+        # overlap_pixel_left = np.array((target_pixel_left) == (occluder_pixel_left), dtype=np.uint8)
+        # overlap_pixel_right = np.array((target_pixel_right) == (occluder_pixel_right), dtype=np.uint8)
+        
+        occluder_pixel_left -= overlap_pixel_left
+        occluder_pixel_right -= overlap_pixel_right
+        target_pixel_left -= overlap_pixel_left
+        target_pixel_right -= overlap_pixel_right
+        
+        new_array_left = np.stack([target_pixel_left, occluder_pixel_left, overlap_pixel_left], axis=-1) * 255
+        new_array_right = np.stack([target_pixel_right, occluder_pixel_right, overlap_pixel_right], axis=-1) * 255
+
+        
+
+
         if FLAGS.export:
             encoded_left = self.sess.run(
                 self.png_img, feed_dict={self.np_img: merged_image_left})
             encoded_right = self.sess.run(
                 self.png_img, feed_dict={self.np_img: merged_image_right})
             _write_to_file(encoded_left, encoded_right,
-                           labels, target, count)
+                           labels, self.deployment_target, count)
+        
+        elif FLAGS.rgb_export:
+            encoded_left = self.sess.run(
+                self.png_img, feed_dict={self.np_img: new_array_left})
+            encoded_right = self.sess.run(
+                self.png_img, feed_dict={self.np_img: new_array_right})
+            _write_to_file(encoded_left, encoded_right,
+                           labels, self.deployment_target, count)
 
         else:
             png_encoded_left = self.sess.run(
@@ -597,14 +639,17 @@ if __name__ == '__main__':
     mkdir_p(path + 'train/')
     mkdir_p(path + 'test/')
     mkdir_p(path + 'validation/')
-
+    
+    output_shape = [32,32,3] if FLAGS.rgb_export else [32,32,1]
+    
     FLAGS.n_proliferation //= FLAGS.n_shards
     builder = OSMNISTBuilder(
         centered_target=FLAGS.centered_target,
         vfloor=FLAGS.vfloor,
         n_proliferation=FLAGS.n_proliferation,
         fashion=FLAGS.fashion,
-        kuzushiji=FLAGS.kuzushiji)
+        kuzushiji=FLAGS.kuzushiji,
+        shape=output_shape)
 
     for i in range(FLAGS.n_shards):
         builder.build(
