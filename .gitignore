@@ -4,6 +4,12 @@
 .AppleDouble
 .LSOverride
 
+#pyenv
+.python-version
+
+#nova
+.nova/*
+
 # Icon must end with two \r
 Icon
 
