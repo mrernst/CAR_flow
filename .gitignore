@@ -14,7 +14,7 @@
 Icon
 
 # Thumbnails
-._*
+#._*
 .ipynb*
 
 # Files that might appear in the root of a volume
