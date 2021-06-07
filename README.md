@@ -14,7 +14,10 @@ If you make use of this code please cite either one:
 
 ## Getting started with the repository
 
-* Download the (OSCAR Datasets)[https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg]
+* Download the [OSCAR Datasets](https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg) from Zenodo
+* Put them in their respective folders in /datasets
+* Configure the config.py file
+* Start an experiment on a slurm cluster using run_engine.py 
 
 ### Prerequisites
 
@@ -39,21 +42,19 @@ If you make use of this code please cite either one:
 │   ├── osmnist                      # OS-MNIST
 │   ├── osycb                        # OS-YCB
 ├── network_engine                    
-│   ├── run_engine.py             		        
-│   ├── engine.py
-│   ├── config.py             		                   		        
+│   ├── run_engine.py                # Builds experiment substructure, launches on slurm cluster        
 │   ├── utilities             		    
-│   │   ├── afterburner.py            # description
-│   │   ├── distancemetric.py         # description
-│   │   ├── helper.py                 # description
-│   │   ├── tfevent_handler.py        # description
-│   │   ├── tfrecord_handler.py       # description
-│   │   ├── visualizer.py             # description
+│   │   ├── afterburner.py            # Combines experiment files post-hoc
+│   │   ├── distancemetric.py         
+│   │   ├── helper.py                 # Helper functions
+│   │   ├── tfevent_handler.py        
+│   │   ├── tfrecord_handler.py       
+│   │   ├── visualizer.py             # Visualization functions
 │   ├── engine.py                     # Main Program
-│   ├── parameters.py                 # Experiment Parameters
+│   ├── config.py             		  # Experiment Parameters 
 │   ├── run_engine.py                 # Setup and Run Experiments
 ├── experiments                   
-├── LICENSE                           # Apache 2.0 License
+├── LICENSE                           # MIT License
 ├── README.md                         # ReadMe File
 └── requirements.txt                  # conda/pip requirements
 ```
@@ -78,7 +79,7 @@ Activate the virtual environment:
 
 By installing these packages in a virtual environment, you avoid dependency clashes with other packages that may already be installed elsewhere on your computer.
 
-## Experiments
+## Changing weights during training
 
 <p align="center">
   <img src="https://github.com/mrernst/CAR_flow/blob/master/img/BK_weights.gif" width="375">
