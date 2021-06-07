@@ -53,7 +53,7 @@ If you make use of this code please cite either one or both:
 │   │   ├── networks
 │   │   │   ├── advancedrcnn.py       # Dynamic network builder
 │   │   │   ├── buildingblocks.py     # Predefined modules to stack networks
-│   │   │   ├── predictivecodingnet.py      # predictive coding network
+│   │   │   ├── predictivecodingnet.py      # Predictive coding network
 │   │   │   ├── preprocessor.py       # Data augmentation framework
 │   │   │   ├── simplemrcnn.py        # Networks akin Spoerer et. al. 2017
 │   │   │   ├── simplercnn.py         # Networks with multiplicative conn.
