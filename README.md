@@ -71,7 +71,7 @@ Fork a copy of this repository onto your own GitHub account and `clone` your for
 
 Install [Python 3.7](https://www.python.org/downloads/release/python-371/) and the [conda package manager](https://conda.io/miniconda.html) (use miniconda). Navigate to the project directory inside a terminal and create a virtual environment (replace <ENVIRONMENT_NAME>, for example, with `recurrentnetworks`) and install the [required packages](requirements.txt):
 
-`conda create -n <ENVIRONMENT_NAME> --file requirements.txt python=3.6`
+`conda create -n <ENVIRONMENT_NAME> --file requirements.txt python=3.7`
 
 Activate the virtual environment:
 
