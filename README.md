@@ -14,7 +14,7 @@ If you make use of this code please cite either one or both:
 
 ## Getting started with the repository
 
-* Download the OSCAR Datasets [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg)](https://doi.org/10.5281/zenodo.3540900) from Zenodo and put the in their respective folders in /datasets
+* Download the OSCAR Datasets from Zenodo and put the in their respective folders in /datasets [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg)](https://doi.org/10.5281/zenodo.3540900)
 * Convert data to tfrecord format using the provided scripts
 * Configure the config.py file
 * Start an experiment on a slurm cluster using run_engine.py 
