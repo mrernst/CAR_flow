@@ -77,7 +77,6 @@ Activate the virtual environment:
 
 `source activate <ENVIRONMENT_NAME>`
 
-By installing these packages in a virtual environment, you avoid dependency clashes with other packages that may already be installed elsewhere on your computer.
 
 ## Changing weights during training
 
