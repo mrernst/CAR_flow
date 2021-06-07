@@ -78,7 +78,7 @@ Activate the virtual environment:
 `source activate <ENVIRONMENT_NAME>`
 
 
-## Changing weights during training
+### Animation of changing weights during training
 
 <p align="center">
   <img src="https://github.com/mrernst/CAR_flow/blob/master/img/BK_weights.gif" width="375">
