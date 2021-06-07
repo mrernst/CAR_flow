@@ -4,8 +4,8 @@
 <p align="center">
   <img src="https://github.com/mrernst/CAR_flow/blob/master/img/OSCAR_mnist.png" width="375">
 
-CAR_flow stands for Convolutional Architectures with Recurrence, a tensorflow implementation. It is the codebase used for the two conference publications [1, 2]. 
-If you make use of this code please cite either one:
+CAR_flow stands for Convolutional Architectures with Recurrence, tensorflow implementation. It is the codebase used for the two conference publications [1, 2]. 
+If you make use of this code please cite either one or both:
  
 
 [1] **Ernst, M. R., Triesch, J., & Burwick, T. (2019). Recurrent connections aid occluded object 626 recognition by discounting occluders. In I. V. Tetko, V. Kurkova, P. Karpov, & F. Theis (Eds.), Artificial neural networks and machine learning ICANN 2019:Image processing (pp. 294-305). Springer International Publishing. https://doi.org/10.1007/978-3-030-30508-6_24**
@@ -14,8 +14,8 @@ If you make use of this code please cite either one:
 
 ## Getting started with the repository
 
-* Download the [OSCAR Datasets](https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg) from Zenodo
-* Put them in their respective folders in /datasets
+* Download the OSCAR Datasets [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3540900.svg)](https://doi.org/10.5281/zenodo.3540900) from Zenodo and put the in their respective folders in /datasets
+* Convert data to tfrecord format using the provided scripts
 * Configure the config.py file
 * Start an experiment on a slurm cluster using run_engine.py 
 
@@ -69,7 +69,7 @@ Fork a copy of this repository onto your own GitHub account and `clone` your for
 
 #### Setting up the environment
 
-Install [Python 3.6](https://www.python.org/downloads/release/python-360/) and the [conda package manager](https://conda.io/miniconda.html) (use miniconda). Navigate to the project directory inside a terminal and create a virtual environment (replace <ENVIRONMENT_NAME>, for example, with `occludedobjectrecognition`) and install the [required packages](requirements.txt):
+Install [Python 3.7](https://www.python.org/downloads/release/python-371/) and the [conda package manager](https://conda.io/miniconda.html) (use miniconda). Navigate to the project directory inside a terminal and create a virtual environment (replace <ENVIRONMENT_NAME>, for example, with `recurrentnetworks`) and install the [required packages](requirements.txt):
 
 `conda create -n <ENVIRONMENT_NAME> --file requirements.txt python=3.6`
 
