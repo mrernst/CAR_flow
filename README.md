@@ -2,7 +2,7 @@
 ## Occluded Object Recognition Codebase
 
 <p align="center">
-  <img src="https://github.com/mrernst/CAR_flow/blob/main/imgs/OSCAR_mnist.png" width="375">
+  <img src="https://github.com/mrernst/CAR_flow/blob/main/img/OSCAR_mnist.png" width="375">
 
 CAR_flow stands for Convolutional Architectures with Recurrence, a tensorflow implementation. It is the codebase used for the two conference publications [1, 2]. 
 If you make use of this code please cite either one:
@@ -81,7 +81,7 @@ By installing these packages in a virtual environment, you avoid dependency clas
 ## Experiments
 
 <p align="center">
-  <img src="https://github.com/mrernst/CAR_flow/blob/main/imgs/BK_weights.gif" width="375">
+  <img src="https://github.com/mrernst/CAR_flow/blob/main/img/BK_weights.gif" width="375">
 
 ## License
 
