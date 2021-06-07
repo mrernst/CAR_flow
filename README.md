@@ -57,7 +57,6 @@ If you make use of this code please cite either one or both:
 │   │   │   ├── preprocessor.py       # Data augmentation framework
 │   │   │   ├── simplemrcnn.py        # Networks akin Spoerer et. al. 2017
 │   │   │   ├── simplercnn.py         # Networks with multiplicative conn.
-
 │   ├── engine.py                     # Main Program
 │   ├── config.py             		  # Experiment Parameters 
 │   ├── run_engine.py                 # Setup and Run Experiments
